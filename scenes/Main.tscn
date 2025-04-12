@@ -1,22 +1,38 @@
 [gd_scene load_steps=7 format=3 uid="uid://bs63owhebywam"]
 
-[ext_resource type="Script" uid="uid://notx2lkyundp" path="res://scripts/game_manager.gd" id="1_m7yfu"]
+[ext_resource type="Script" uid="uid://cbhy7p3anenyq" path="res://scripts/game_controller.gd" id="1_m7yfu"]
 [ext_resource type="Script" uid="uid://cg0u4nqptpfae" path="res://scripts/grid.gd" id="2_uw6ys"]
 [ext_resource type="Script" uid="uid://bfaltgio4e5fa" path="res://scripts/launcher.gd" id="3_1e6a1"]
 [ext_resource type="PackedScene" uid="uid://ckrjns83yjgt3" path="res://scenes/Shape.tscn" id="4_77nxu"]
 
 [sub_resource type="Gradient" id="Gradient_jc2gh"]
-colors = PackedColorArray(0.0313726, 0.0156863, 0.105882, 1, 0.0941176, 0.0627451, 0.25098, 1)
+colors = PackedColorArray(0.65, 0.78, 0.95, 1, 0.4, 0.6, 0.9, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_e32x8"]
 gradient = SubResource("Gradient_jc2gh")
-fill_to = Vector2(0, 1)
 width = 1200
 height = 1200
+fill_to = Vector2(0, 1)
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_m7yfu")
 shape_scene = ExtResource("4_77nxu")
+
+[node name="MainCamera" type="Camera2D" parent="."]
+position = Vector2(320, 400)
+enabled = true
+zoom = Vector2(0.9, 0.9)
+limit_left = 0
+limit_top = 0
+limit_right = 640
+limit_bottom = 800
+limit_smoothed = true
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
+drag_horizontal_enabled = true
+drag_vertical_enabled = true
+editor_draw_limits = true
+editor_draw_drag_margin = true
 
 [node name="Background" type="TextureRect" parent="."]
 offset_left = -300.0
@@ -35,16 +51,6 @@ offset_right = 320.0
 offset_bottom = 40.0
 color = Color(0.113725, 0.105882, 0.2, 0.764706)
 
-[node name="TitleText" type="Label" parent="GameTitle"]
-offset_left = -150.0
-offset_top = -15.0
-offset_right = 150.0
-offset_bottom = 15.0
-theme_override_font_sizes/font_size = 24
-text = "Cosmic Blocks"
-horizontal_alignment = 1
-vertical_alignment = 1
-
 [node name="Grid" type="Node2D" parent="."]
 script = ExtResource("2_uw6ys")
 
@@ -53,12 +59,12 @@ offset_left = -10.0
 offset_top = -10.0
 offset_right = 650.0
 offset_bottom = 710.0
-color = Color(0.239216, 0.239216, 0.329412, 0.74902)
+color = Color(0.4, 0.5, 0.7, 0.25)
 
 [node name="GridArea" type="ColorRect" parent="Grid"]
 offset_right = 640.0
 offset_bottom = 700.0
-color = Color(0.0627451, 0.0431373, 0.176471, 0.901961)
+color = Color(0.6, 0.7, 0.9, 0.1)
 
 [node name="GridLines" type="Node2D" parent="Grid"]
 
@@ -162,28 +168,24 @@ offset_left = -30.0
 offset_top = -30.0
 offset_right = 30.0
 offset_bottom = 30.0
-color = Color(0.356863, 0.356863, 0.517647, 1)
 pivot_offset = Vector2(30, 30)
+color = Color(0.356863, 0.356863, 0.517647, 1)
 
 [node name="LauncherCore" type="ColorRect" parent="Launcher"]
 offset_left = -20.0
 offset_top = -20.0
 offset_right = 20.0
 offset_bottom = 20.0
-color = Color(0.290196, 0.321569, 0.517647, 1)
 pivot_offset = Vector2(20, 20)
+color = Color(0.290196, 0.321569, 0.517647, 1)
 
 [node name="LauncherDirection" type="Line2D" parent="Launcher"]
 points = PackedVector2Array(0, 0, 80, 0)
 width = 3.0
 default_color = Color(0.811765, 0.937255, 1, 0.839216)
 
-[node name="ControlsHint" type="Label" parent="."]
-offset_left = 10.0
-offset_top = 660.0
-offset_right = 210.0
-offset_bottom = 690.0
-text = "Click to launch"
+[node name="Shape" parent="Launcher" instance=ExtResource("4_77nxu")]
+visible = false
 
 [node name="ScoreDisplay" type="Node2D" parent="."]
 position = Vector2(320, 755)
@@ -194,11 +196,3 @@ offset_top = -20.0
 offset_right = 200.0
 offset_bottom = 20.0
 color = Color(0.188235, 0.188235, 0.243137, 0.498039)
-
-[node name="ScoreLabel" type="Label" parent="ScoreDisplay"]
-offset_left = -150.0
-offset_top = -15.0
-offset_right = 150.0
-offset_bottom = 15.0
-text = "SCORE: 0"
-horizontal_alignment = 1

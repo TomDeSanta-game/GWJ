@@ -13,6 +13,3 @@ script = ExtResource("1_uacau")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_yrhgn")
-
-[node name="Camera2D" type="Camera2D" parent="."]
-zoom = Vector2(0.8, 0.8)

@@ -1,0 +1,425 @@
+[gd_scene load_steps=8 format=3 uid="uid://doaqvupbr68d8"]
+
+[ext_resource type="Script" uid="uid://cbhy7p3anenyq" path="res://scripts/game_controller.gd" id="1_k31jy"]
+[ext_resource type="Script" uid="uid://cg0u4nqptpfae" path="res://scripts/grid.gd" id="2_uw6ys"]
+[ext_resource type="Script" uid="uid://bfaltgio4e5fa" path="res://scripts/launcher.gd" id="3_1e6a1"]
+[ext_resource type="PackedScene" uid="uid://ckrjns83yjgt3" path="res://scenes/Shape.tscn" id="4_77nxu"]
+[ext_resource type="Script" uid="uid://cvitk5ax37ctf" path="res://scripts/cloud_movement.gd" id="5_cloud"]
+
+[sub_resource type="Gradient" id="Gradient_jc2gh"]
+colors = PackedColorArray(0.7, 0.85, 1, 1, 0.3, 0.6, 0.9, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_e32x8"]
+gradient = SubResource("Gradient_jc2gh")
+width = 1200
+height = 1200
+fill_to = Vector2(0, 1)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_k31jy")
+shape_scene = ExtResource("4_77nxu")
+
+[node name="Background" type="TextureRect" parent="."]
+offset_left = -300.0
+offset_top = -300.0
+offset_right = 950.0
+offset_bottom = 950.0
+texture = SubResource("GradientTexture2D_e32x8")
+
+[node name="Clouds" type="Node2D" parent="Background"]
+
+[node name="Cloud1" type="Node2D" parent="Background/Clouds"]
+position = Vector2(100, 100)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud1"]
+offset_left = -30.0
+offset_top = -15.0
+offset_right = 10.0
+offset_bottom = 25.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud1"]
+offset_left = -15.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud1"]
+offset_top = -20.0
+offset_right = 40.0
+offset_bottom = 20.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Cloud2" type="Node2D" parent="Background/Clouds"]
+position = Vector2(320, 200)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud2"]
+offset_left = -40.0
+offset_top = -20.0
+offset_right = 10.0
+offset_bottom = 30.0
+color = Color(1, 1, 1, 0.25)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud2"]
+offset_left = -20.0
+offset_top = -25.0
+offset_right = 30.0
+offset_bottom = 25.0
+color = Color(1, 1, 1, 0.25)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud2"]
+offset_left = 10.0
+offset_top = -15.0
+offset_right = 60.0
+offset_bottom = 35.0
+color = Color(1, 1, 1, 0.25)
+
+[node name="Cloud3" type="Node2D" parent="Background/Clouds"]
+position = Vector2(560, 150)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud3"]
+offset_left = -35.0
+offset_top = -20.0
+offset_right = 5.0
+offset_bottom = 20.0
+color = Color(1, 1, 1, 0.3)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud3"]
+offset_left = -15.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.3)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud3"]
+offset_left = 5.0
+offset_top = -15.0
+offset_right = 45.0
+offset_bottom = 25.0
+color = Color(1, 1, 1, 0.3)
+
+[node name="Cloud4" type="Node2D" parent="Background/Clouds"]
+position = Vector2(190, 300)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud4"]
+offset_left = -25.0
+offset_top = -15.0
+offset_right = 5.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud4"]
+offset_left = -10.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 10.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud4"]
+offset_top = -15.0
+offset_right = 30.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="Cloud5" type="Node2D" parent="Background/Clouds"]
+position = Vector2(480, 400)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud5"]
+offset_left = -35.0
+offset_top = -20.0
+offset_right = 5.0
+offset_bottom = 20.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud5"]
+offset_left = -15.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud5"]
+offset_left = 5.0
+offset_top = -15.0
+offset_right = 45.0
+offset_bottom = 25.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Cloud6" type="Node2D" parent="Background/Clouds"]
+position = Vector2(150, 500)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud6"]
+offset_left = -25.0
+offset_top = -15.0
+offset_right = 5.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud6"]
+offset_left = -10.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 10.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud6"]
+offset_top = -15.0
+offset_right = 30.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.15)
+
+[node name="Cloud7" type="Node2D" parent="Background/Clouds"]
+position = Vector2(410, 550)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud7"]
+offset_left = -30.0
+offset_top = -15.0
+offset_right = 10.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud7"]
+offset_left = -15.0
+offset_top = -20.0
+offset_right = 25.0
+offset_bottom = 10.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud7"]
+offset_left = 5.0
+offset_top = -15.0
+offset_right = 45.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.2)
+
+[node name="Cloud8" type="Node2D" parent="Background/Clouds"]
+position = Vector2(630, 330)
+script = ExtResource("5_cloud")
+
+[node name="Circle1" type="ColorRect" parent="Background/Clouds/Cloud8"]
+offset_left = -25.0
+offset_top = -15.0
+offset_right = 5.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.25)
+
+[node name="Circle2" type="ColorRect" parent="Background/Clouds/Cloud8"]
+offset_left = -10.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 10.0
+color = Color(1, 1, 1, 0.25)
+
+[node name="Circle3" type="ColorRect" parent="Background/Clouds/Cloud8"]
+offset_top = -15.0
+offset_right = 30.0
+offset_bottom = 15.0
+color = Color(1, 1, 1, 0.25)
+
+[node name="GameTitle" type="Node2D" parent="."]
+position = Vector2(320, 30)
+
+[node name="TitleBackground" type="ColorRect" parent="GameTitle"]
+offset_left = -320.0
+offset_top = -30.0
+offset_right = 320.0
+offset_bottom = 40.0
+color = Color(0.113725, 0.105882, 0.2, 0.764706)
+
+[node name="Grid" type="Node2D" parent="."]
+script = ExtResource("2_uw6ys")
+
+[node name="GridBorder" type="ColorRect" parent="Grid"]
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 650.0
+offset_bottom = 710.0
+color = Color(0.4, 0.5, 0.7, 0.25)
+
+[node name="GridArea" type="ColorRect" parent="Grid"]
+offset_right = 640.0
+offset_bottom = 700.0
+color = Color(0.6, 0.7, 0.9, 0.1)
+
+[node name="GridLines" type="Node2D" parent="Grid"]
+
+[node name="HorizontalLines" type="Node2D" parent="Grid/GridLines"]
+
+[node name="Line1" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 100)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line2" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 200)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line3" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 300)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line4" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 400)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line5" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 500)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line6" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 600)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="VerticalLines" type="Node2D" parent="Grid/GridLines"]
+
+[node name="Line1" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(100, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line2" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(200, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line3" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(300, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line4" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(400, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line5" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(500, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line6" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(600, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="GameOverLine" type="Line2D" parent="Grid"]
+position = Vector2(0, 640)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 3.0
+default_color = Color(0.933333, 0.254902, 0.239216, 0.741176)
+
+[node name="Launcher" type="Node2D" parent="."]
+position = Vector2(320, 720)
+script = ExtResource("3_1e6a1")
+shape_scene = ExtResource("4_77nxu")
+launch_speed = 800.0
+
+[node name="LauncherPulse" type="CPUParticles2D" parent="Launcher"]
+amount = 20
+lifetime = 1.5
+local_coords = true
+emission_shape = 1
+emission_sphere_radius = 30.0
+spread = 180.0
+gravity = Vector2(0, 0)
+initial_velocity_min = 5.0
+initial_velocity_max = 15.0
+scale_amount_min = 2.0
+scale_amount_max = 4.0
+color = Color(0.5, 0.7, 1, 0.2)
+
+[node name="LauncherGlow" type="ColorRect" parent="Launcher"]
+offset_left = -45.0
+offset_top = -45.0
+offset_right = 45.0
+offset_bottom = 45.0
+color = Color(0.6, 0.8, 1, 0.15)
+
+[node name="LauncherBase" type="ColorRect" parent="Launcher"]
+offset_left = -35.0
+offset_top = -35.0
+offset_right = 35.0
+offset_bottom = 35.0
+pivot_offset = Vector2(35, 35)
+color = Color(0.25, 0.3, 0.5, 1)
+
+[node name="LauncherCore" type="ColorRect" parent="Launcher"]
+offset_left = -25.0
+offset_top = -25.0
+offset_right = 25.0
+offset_bottom = 25.0
+pivot_offset = Vector2(25, 25)
+color = Color(0.3, 0.4, 0.6, 1)
+
+[node name="LauncherInner" type="ColorRect" parent="Launcher"]
+offset_left = -15.0
+offset_top = -15.0
+offset_right = 15.0
+offset_bottom = 15.0
+pivot_offset = Vector2(15, 15)
+color = Color(0.4, 0.5, 0.7, 1)
+
+[node name="LauncherDirection" type="Line2D" parent="Launcher"]
+points = PackedVector2Array(0, 0, 100, 0)
+width = 4.0
+default_color = Color(0.7, 0.85, 1, 0.8)
+
+[node name="Shape" parent="Launcher" instance=ExtResource("4_77nxu")]
+visible = false
+
+[node name="ScoreDisplay" type="Node2D" parent="."]
+position = Vector2(320, 755)
+
+[node name="ScoreBackground" type="ColorRect" parent="ScoreDisplay"]
+offset_left = -200.0
+offset_top = -20.0
+offset_right = 200.0
+offset_bottom = 20.0
+color = Color(0.188235, 0.188235, 0.243137, 0.498039)
+
+[node name="ScoreFill" type="ColorRect" parent="ScoreDisplay"]
+offset_left = -200.0
+offset_top = -15.0
+offset_right = -200.0
+offset_bottom = 15.0
+color = Color(0.4, 0.6, 0.9, 0.7)
+
+[node name="MainCamera" type="Camera2D" parent="."]
+position = Vector2(320, 400)
+zoom = Vector2(0.9, 0.9)
+limit_left = 0
+limit_top = 0
+limit_right = 640
+limit_bottom = 800
+limit_smoothed = true
+position_smoothing_enabled = true
+position_smoothing_speed = 4.0
+drag_horizontal_enabled = true
+drag_vertical_enabled = true
+editor_draw_limits = true
+editor_draw_drag_margin = true

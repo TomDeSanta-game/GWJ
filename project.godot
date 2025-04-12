@@ -11,20 +11,25 @@ config_version=5
 [application]
 
 config/name="My Cannon is Named Steve... Wait, Shapes?"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/MainNew.tscn"
 config/features=PackedStringArray("4.4")
 config/icon="res://icon.png"
 
 [autoload]
 
 SignalBus="*res://scripts/signal_bus.gd"
+SoundManager="*res://addons/sound_manager/sound_manager.gd"
 
 [display]
 
 window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-mouse_cursor/custom_image="uid://bwtewtrg3kgyk"
+window/vsync/vsync_mode=0
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/script-ide/plugin.cfg", "res://addons/sound_manager/plugin.cfg")
 
 [input]
 
@@ -40,5 +45,5 @@ fire={
 
 [rendering]
 
-textures/canvas_textures/default_texture_filter=3
+textures/canvas_textures/default_texture_filter=2
 environment/defaults/default_clear_color=Color(0, 0, 0, 1)
