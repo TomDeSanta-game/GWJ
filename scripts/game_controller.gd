@@ -266,116 +266,393 @@ func add_game_over_skull(container: Node2D) -> void:
 	skull.position = Vector2(0, -50)
 	container.add_child(skull)
 	
-	var skull_circle := ColorRect.new()
-	skull_circle.color = Color(0.9, 0.9, 0.9, 1)
-	skull_circle.size = Vector2(80, 100)
-	skull_circle.position = Vector2(-40, -50)
-	skull.add_child(skull_circle)
+	# Create a more friendly "game over" face with soft edges
 	
-	var left_eye := ColorRect.new()
-	left_eye.color = Color(0, 0, 0, 1)
-	left_eye.size = Vector2(20, 20)
-	left_eye.position = Vector2(-30, -30)
+	# Add a warm soft glow behind the face
+	var background_glow = Sprite2D.new()
+	var glow_size = 150
+	var glow_img = Image.create(glow_size, glow_size, false, Image.FORMAT_RGBA8)
+	glow_img.fill(Color(0, 0, 0, 0))
+	
+	var center = Vector2(glow_size/2, glow_size/2)
+	var radius = glow_size/2
+	
+	for x in range(glow_size):
+		for y in range(glow_size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist < radius:
+				var alpha = 1.0 - pow(dist / radius, 1.8)
+				glow_img.set_pixel(x, y, Color(1.0, 0.7, 0.3, alpha * 0.3))
+	
+	background_glow.texture = ImageTexture.create_from_image(glow_img)
+	background_glow.scale = Vector2(1.5, 1.5)
+	background_glow.z_index = -2
+	skull.add_child(background_glow)
+	
+	# Create a rounded face instead of a skull
+	var face_sprite = Sprite2D.new()
+	var face_size = 120
+	var face_img = Image.create(face_size, face_size, false, Image.FORMAT_RGBA8)
+	face_img.fill(Color(0, 0, 0, 0))
+	
+	center = Vector2(face_size/2, face_size/2)
+	radius = face_size/2
+	
+	for x in range(face_size):
+		for y in range(face_size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist < radius:
+				var gradient_factor = 1.0 - (dist / radius)
+				var color = Color(1.0, 0.9, 0.8, 1.0).lightened(0.1 * gradient_factor)
+				face_img.set_pixel(x, y, color)
+	
+	face_sprite.texture = ImageTexture.create_from_image(face_img)
+	face_sprite.position = Vector2(0, 0)
+	skull.add_child(face_sprite)
+	
+	# Add sleepy eyes (closed eyes with eyelashes)
+	var left_eye = Node2D.new()
+	left_eye.position = Vector2(-25, -15)
 	skull.add_child(left_eye)
 	
-	var right_eye := ColorRect.new()
-	right_eye.color = Color(0, 0, 0, 1)
-	right_eye.size = Vector2(20, 20)
-	right_eye.position = Vector2(10, -30)
+	var left_eye_line = Sprite2D.new()
+	var eye_width = 25
+	var eye_height = 8
+	var eye_img = Image.create(eye_width, eye_height, false, Image.FORMAT_RGBA8)
+	eye_img.fill(Color(0, 0, 0, 0))
+	
+	# Draw a curved line for closed eye
+	for x in range(eye_width):
+		var y_pos = 4 + sin((float(x) / eye_width) * PI) * 3
+		for y in range(eye_height):
+			var dist = abs(y - y_pos)
+			if dist < 2:
+				var alpha = 1.0 - dist / 2.0
+				eye_img.set_pixel(x, y, Color(0.3, 0.2, 0.2, alpha))
+	
+	left_eye_line.texture = ImageTexture.create_from_image(eye_img)
+	left_eye.add_child(left_eye_line)
+	
+	# Add eyelashes
+	for i in range(3):
+		var lash = ColorRect.new()
+		lash.color = Color(0.3, 0.2, 0.2, 0.7)
+		lash.size = Vector2(1, 6)
+		lash.position = Vector2(5 + i * 8, -2)
+		lash.rotation = -0.5
+		left_eye.add_child(lash)
+	
+	# Right eye (mirrored)
+	var right_eye = Node2D.new()
+	right_eye.position = Vector2(25, -15)
 	skull.add_child(right_eye)
 	
-	var nose := ColorRect.new()
-	nose.color = Color(0, 0, 0, 1)
-	nose.size = Vector2(10, 15)
-	nose.position = Vector2(-5, 0)
-	skull.add_child(nose)
+	var right_eye_line = Sprite2D.new()
+	right_eye_line.texture = ImageTexture.create_from_image(eye_img)
+	right_eye.add_child(right_eye_line)
 	
-	# Add pulsing glow to skull
-	var glow = ColorRect.new()
-	glow.color = Color(1.0, 0.0, 0.0, 0.3)
-	glow.size = Vector2(100, 120)
-	glow.position = Vector2(-50, -60)
+	# Add eyelashes for right eye
+	for i in range(3):
+		var lash = ColorRect.new()
+		lash.color = Color(0.3, 0.2, 0.2, 0.7)
+		lash.size = Vector2(1, 6)
+		lash.position = Vector2(5 + i * 8, -2)
+		lash.rotation = -0.5
+		right_eye.add_child(lash)
+	
+	# Add a cute mouth (a simple curved line)
+	var mouth = Sprite2D.new()
+	var mouth_width = 40
+	var mouth_height = 20
+	var mouth_img = Image.create(mouth_width, mouth_height, false, Image.FORMAT_RGBA8)
+	mouth_img.fill(Color(0, 0, 0, 0))
+	
+	# Draw curved mouth with small gradient for softness
+	for x in range(mouth_width):
+		var progress = float(x) / mouth_width
+		var y_pos = 10 - sin(progress * PI) * 5
+		
+		for y in range(mouth_height):
+			var dist = abs(y - y_pos)
+			if dist < 2:
+				var alpha = 1.0 - dist / 2.0
+				mouth_img.set_pixel(x, y, Color(0.8, 0.3, 0.3, alpha))
+	
+	mouth.texture = ImageTexture.create_from_image(mouth_img)
+	mouth.position = Vector2(0, 15)
+	skull.add_child(mouth)
+	
+	# Add a drop of sweat for comic effect
+	var sweat = Sprite2D.new()
+	var sweat_size = 10
+	var sweat_img = Image.create(sweat_size, sweat_size, false, Image.FORMAT_RGBA8)
+	sweat_img.fill(Color(0, 0, 0, 0))
+	
+	for x in range(sweat_size):
+		for y in range(sweat_size):
+			# Create a teardrop shape
+			var normalized_x = float(x) / sweat_size
+			var normalized_y = float(y) / sweat_size
+			var in_drop = false
+			
+			# Simple teardrop formula
+			if normalized_y > 0.3:
+				var width = 0.4 * sin(normalized_y * PI)
+				if abs(normalized_x - 0.5) < width:
+					in_drop = true
+			elif normalized_x > 0.3 && normalized_x < 0.7 && normalized_y < 0.3:
+				in_drop = true
+				
+			if in_drop:
+				var alpha = 1.0 - (Vector2(x, y).distance_to(Vector2(sweat_size/2, sweat_size/2)) / (sweat_size/2))
+				sweat_img.set_pixel(x, y, Color(0.7, 0.9, 1.0, alpha * 0.8))
+	
+	sweat.texture = ImageTexture.create_from_image(sweat_img)
+	sweat.position = Vector2(40, -10)
+	skull.add_child(sweat)
+	
+	# Add sweat drop animation
+	var sweat_tween = create_tween()
+	sweat_tween.set_loops()
+	sweat_tween.tween_property(sweat, "position", Vector2(40, 0), 0.7).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	sweat_tween.tween_property(sweat, "position", Vector2(40, -10), 0.0)
+	sweat_tween.tween_property(sweat, "visible", false, 0.0)
+	sweat_tween.tween_interval(0.8)
+	sweat_tween.tween_property(sweat, "visible", true, 0.0)
+	
+	# Add warm glow around the face
+	var glow = Sprite2D.new()
+	var glow_img2 = Image.create(face_size, face_size, false, Image.FORMAT_RGBA8)
+	glow_img2.fill(Color(0, 0, 0, 0))
+	
+	for x in range(face_size):
+		for y in range(face_size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist < radius * 1.2 && dist > radius * 0.8:
+				var factor = 1.0 - abs((dist - radius) / (radius * 0.2))
+				glow_img2.set_pixel(x, y, Color(1.0, 0.5, 0.3, factor * 0.4))
+	
+	glow.texture = ImageTexture.create_from_image(glow_img2)
 	glow.z_index = -1
 	skull.add_child(glow)
 	
-	var glow_tween = create_tween()
-	glow_tween.set_loops()
-	glow_tween.tween_property(glow, "scale", Vector2(1.2, 1.2), 1.0)
-	glow_tween.tween_property(glow, "scale", Vector2(1.0, 1.0), 1.0)
-	
-	# Add animation to the skull
+	# Add gentle bounce animation
 	var skull_tween = create_tween()
 	skull_tween.set_loops()
-	skull_tween.tween_property(skull, "rotation", 0.1, 1.5)
-	skull_tween.tween_property(skull, "rotation", -0.1, 1.5)
+	skull_tween.tween_property(skull, "position", Vector2(0, -45), 1.5).set_trans(Tween.TRANS_SINE)
+	skull_tween.tween_property(skull, "position", Vector2(0, -55), 1.5).set_trans(Tween.TRANS_SINE)
+	
+	# Add glow animation
+	var glow_tween = create_tween()
+	glow_tween.set_loops()
+	glow_tween.tween_property(glow, "scale", Vector2(1.15, 1.15), 2.0).set_trans(Tween.TRANS_SINE)
+	glow_tween.tween_property(glow, "scale", Vector2(0.95, 0.95), 2.0).set_trans(Tween.TRANS_SINE)
+	
+	# Add a game over message
+	var game_over_label = Label.new()
+	game_over_label.text = "Game Over"
+	game_over_label.add_theme_font_size_override("font_size", 24)
+	game_over_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.4, 0.8))
+	game_over_label.position = Vector2(-60, 50)
+	skull.add_child(game_over_label)
 
 func add_restart_button(container: Node2D) -> void:
 	var restart_hint := Node2D.new()
 	restart_hint.position = Vector2(0, 80)
 	container.add_child(restart_hint)
 	
-	var r_key := ColorRect.new()
-	r_key.color = Color(0.8, 0.8, 0.8, 1)
-	r_key.size = Vector2(40, 40)
-	r_key.position = Vector2(-20, -20)
-	restart_hint.add_child(r_key)
+	# Create a soft rounded button background
+	var r_key_bg = Sprite2D.new()
+	var key_size = 48
+	var key_img = Image.create(key_size, key_size, false, Image.FORMAT_RGBA8)
+	key_img.fill(Color(0, 0, 0, 0))
 	
+	var center = Vector2(key_size/2, key_size/2)
+	var radius = key_size/2
+	
+	for x in range(key_size):
+		for y in range(key_size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist < radius:
+				var gradient_factor = 1.0 - (dist / radius)
+				var color = Color(0.9, 0.7, 0.7, 1.0).lightened(0.1 * gradient_factor)
+				key_img.set_pixel(x, y, color)
+	
+	r_key_bg.texture = ImageTexture.create_from_image(key_img)
+	restart_hint.add_child(r_key_bg)
+	
+	# Add a glow effect behind the button
+	var key_glow = Sprite2D.new()
+	var glow_size = key_size * 1.5
+	var glow_img = Image.create(glow_size, glow_size, false, Image.FORMAT_RGBA8)
+	glow_img.fill(Color(0, 0, 0, 0))
+	
+	center = Vector2(glow_size/2, glow_size/2)
+	radius = glow_size/2
+	
+	for x in range(glow_size):
+		for y in range(glow_size):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist < radius:
+				var alpha = 1.0 - pow(dist / radius, 1.5)
+				glow_img.set_pixel(x, y, Color(1.0, 0.6, 0.6, alpha * 0.3))
+	
+	key_glow.texture = ImageTexture.create_from_image(glow_img)
+	key_glow.scale = Vector2(1.2, 1.2)
+	key_glow.z_index = -1
+	restart_hint.add_child(key_glow)
+	
+	# Add a more rounded and friendly R letter
 	add_r_key_shape(restart_hint)
+	
+	# Add small restart label
+	var restart_label = Label.new()
+	restart_label.text = "Restart"
+	restart_label.add_theme_font_size_override("font_size", 14)
+	restart_label.add_theme_color_override("font_color", Color(0.8, 0.5, 0.5, 0.8))
+	restart_label.position = Vector2(-30, 30)
+	restart_hint.add_child(restart_label)
 	
 	# Add pulsing effect to restart button
 	var pulse_tween = create_tween()
 	pulse_tween.set_loops()
-	pulse_tween.tween_property(r_key, "color", Color(1.0, 0.7, 0.7, 1), 0.8)
-	pulse_tween.tween_property(r_key, "color", Color(0.8, 0.8, 0.8, 1), 0.8)
+	pulse_tween.tween_property(r_key_bg, "scale", Vector2(1.1, 1.1), 0.8).set_trans(Tween.TRANS_SINE)
+	pulse_tween.tween_property(r_key_bg, "scale", Vector2(0.95, 0.95), 0.8).set_trans(Tween.TRANS_SINE)
 	
-	# Add particles around restart button
+	# Add glow animation
+	var glow_tween = create_tween()
+	glow_tween.set_loops()
+	glow_tween.tween_property(key_glow, "scale", Vector2(1.4, 1.4), 1.5).set_trans(Tween.TRANS_SINE)
+	glow_tween.tween_property(key_glow, "scale", Vector2(1.0, 1.0), 1.5).set_trans(Tween.TRANS_SINE)
+	
+	# Add enhanced particles around restart button
 	var particles = CPUParticles2D.new()
 	particles.position = Vector2(0, 0)
-	particles.amount = 15
-	particles.lifetime = 1.0
+	particles.amount = 20
+	particles.lifetime = 1.5
 	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	particles.emission_sphere_radius = 30
+	particles.emission_sphere_radius = 40
 	particles.local_coords = true
 	particles.direction = Vector2(0, -1)
 	particles.spread = 180
 	particles.gravity = Vector2(0, 0)
-	particles.initial_velocity_min = 10
-	particles.initial_velocity_max = 20
+	particles.initial_velocity_min = 8
+	particles.initial_velocity_max = 15
 	particles.scale_amount_min = 2.0
-	particles.scale_amount_max = 3.0
+	particles.scale_amount_max = 4.0
 	particles.color = Color(1.0, 0.7, 0.7, 0.5)
 	restart_hint.add_child(particles)
+	
+	# Add heart particles occasionally
+	var heart_timer = Timer.new()
+	heart_timer.wait_time = 0.8
+	heart_timer.autostart = true
+	restart_hint.add_child(heart_timer)
+	
+	heart_timer.timeout.connect(func():
+		if randf() > 0.5:  # 50% chance
+			add_heart_particle(restart_hint)
+	)
+
+func add_heart_particle(parent: Node2D) -> void:
+	var heart = Sprite2D.new()
+	var heart_size = 12
+	var heart_img = Image.create(heart_size, heart_size, false, Image.FORMAT_RGBA8)
+	heart_img.fill(Color(0, 0, 0, 0))
+	
+	var center_x = heart_size / 2
+	var center_y = heart_size / 2
+	
+	for x in range(heart_size):
+		for y in range(heart_size):
+			var px = float(x - center_x) / (heart_size / 2)
+			var py = float(y - center_y) / (heart_size / 2)
+			
+			# Heart shape formula
+			var inside_heart = pow(px, 2) + pow(py - 0.5 * sqrt(abs(px)), 2) < 0.6
+			
+			if inside_heart:
+				heart_img.set_pixel(x, y, Color(1.0, 0.5, 0.5, 0.8))
+	
+	heart.texture = ImageTexture.create_from_image(heart_img)
+	
+	# Random position and movement
+	var angle = randf() * 2 * PI
+	var distance = randf_range(30, 60)
+	heart.position = Vector2(cos(angle) * distance, sin(angle) * distance)
+	heart.scale = Vector2(0.1, 0.1)
+	heart.modulate.a = 0.0
+	parent.add_child(heart)
+	
+	# Create movement animation
+	var tween = create_tween()
+	tween.tween_property(heart, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(heart, "modulate:a", 0.8, 0.3)
+	tween.tween_property(heart, "position", heart.position + Vector2(0, -40), 1.5).set_trans(Tween.TRANS_SINE)
+	tween.parallel().tween_property(heart, "modulate:a", 0.0, 0.8).set_delay(0.7)
+	tween.tween_callback(heart.queue_free)
 
 func add_r_key_shape(parent: Node2D) -> void:
-	var r_line1 := ColorRect.new()
-	r_line1.color = Color(0, 0, 0, 1)
-	r_line1.size = Vector2(5, 30)
-	r_line1.position = Vector2(-10, -15)
-	parent.add_child(r_line1)
+	# Create a more rounded and stylized R letter
+	var r_letter = Node2D.new()
+	r_letter.position = Vector2(0, 0)
+	r_letter.scale = Vector2(0.8, 0.8)  # Slightly smaller
+	parent.add_child(r_letter)
 	
-	var r_line2 := ColorRect.new()
-	r_line2.color = Color(0, 0, 0, 1)
-	r_line2.size = Vector2(15, 5)
-	r_line2.position = Vector2(-10, -15)
-	parent.add_child(r_line2)
+	# Vertical stem
+	var stem = Sprite2D.new()
+	var stem_width = 8
+	var stem_height = 24
+	var stem_img = Image.create(stem_width, stem_height, false, Image.FORMAT_RGBA8)
+	stem_img.fill(Color(0, 0, 0, 0))
 	
-	var r_line3 := ColorRect.new()
-	r_line3.color = Color(0, 0, 0, 1)
-	r_line3.size = Vector2(15, 5)
-	r_line3.position = Vector2(-10, 0)
-	parent.add_child(r_line3)
+	for x in range(stem_width):
+		for y in range(stem_height):
+			stem_img.set_pixel(x, y, Color(0.3, 0.2, 0.2, 1.0))
 	
-	var r_line4 := ColorRect.new()
-	r_line4.color = Color(0, 0, 0, 1)
-	r_line4.size = Vector2(5, 5)
-	r_line4.position = Vector2(0, 0)
-	parent.add_child(r_line4)
+	stem.texture = ImageTexture.create_from_image(stem_img)
+	stem.position = Vector2(-10, 0)
+	r_letter.add_child(stem)
 	
-	var r_line5 := ColorRect.new()
-	r_line5.color = Color(0, 0, 0, 1)
-	r_line5.size = Vector2(5, 10)
-	r_line5.position = Vector2(5, 5)
-	parent.add_child(r_line5)
+	# Top curved part
+	var top_curve = Sprite2D.new()
+	var curve_size = 20
+	var curve_img = Image.create(curve_size, curve_size, false, Image.FORMAT_RGBA8)
+	curve_img.fill(Color(0, 0, 0, 0))
+	
+	var curve_center = Vector2(0, curve_size/2)
+	var curve_radius = curve_size/2
+	
+	for x in range(curve_size):
+		for y in range(curve_size):
+			var point = Vector2(x, y)
+			var dist = point.distance_to(curve_center)
+			var angle = atan2(y - curve_center.y, x - curve_center.x)
+			
+			# Draw an arc
+			if dist < curve_radius && dist > curve_radius - 8 && angle > -PI/2 && angle < PI/2:
+				curve_img.set_pixel(x, y, Color(0.3, 0.2, 0.2, 1.0))
+	
+	top_curve.texture = ImageTexture.create_from_image(curve_img)
+	top_curve.position = Vector2(0, -10)
+	r_letter.add_child(top_curve)
+	
+	# Bottom diagonal
+	var diagonal = Sprite2D.new()
+	var diag_width = 20
+	var diag_height = 20
+	var diag_img = Image.create(diag_width, diag_height, false, Image.FORMAT_RGBA8)
+	diag_img.fill(Color(0, 0, 0, 0))
+	
+	for x in range(diag_width):
+		for y in range(diag_height):
+			var dist = abs(y - (float(x) / diag_width) * diag_height)
+			if dist < 3:
+				diag_img.set_pixel(x, y, Color(0.3, 0.2, 0.2, 1.0))
+	
+	diagonal.texture = ImageTexture.create_from_image(diag_img)
+	diagonal.position = Vector2(0, 8)
+	r_letter.add_child(diagonal)
 
 func _input(event: InputEvent) -> void:
 	if is_game_over and event is InputEventKey and event.keycode == KEY_R and event.pressed:

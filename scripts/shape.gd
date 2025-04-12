@@ -94,15 +94,24 @@ func create_shape_visual():  # Creates the visual representation of the shape
 	outline.z_index = 5  # Set to render above other elements
 	add_child(outline)
 	
-	# Create glow effect
+	# Create enhanced glow effect - larger and softer
 	var glow = ColorRect.new()
 	var shape_color = get_color_from_enum()
-	var glow_size = radius * 2.5 # Make glow larger for a softer look
+	var glow_size = radius * 3.5  # Larger glow for a softer, cozier look
 	glow.size = Vector2(glow_size, glow_size)
 	glow.position = Vector2(-glow_size/2, -glow_size/2)
 	glow.color = shape_color.lightened(0.5)
-	glow.color.a = 0.25 # More subtle glow
+	glow.color.a = 0.25  # More visible glow
 	outline.add_child(glow)
+	
+	# Add inner glow for extra coziness
+	var inner_glow = ColorRect.new()
+	var inner_size = radius * 2.4
+	inner_glow.size = Vector2(inner_size, inner_size)
+	inner_glow.position = Vector2(-inner_size/2, -inner_size/2)
+	inner_glow.color = shape_color.lightened(0.35)
+	inner_glow.color.a = 0.3
+	outline.add_child(inner_glow)
 	
 	# Create shape sprite
 	var shape_sprite = Sprite2D.new()
@@ -135,50 +144,78 @@ func create_shape_visual():  # Creates the visual representation of the shape
 	shape_sprite.scale = Vector2(1.0 / scale_factor, 1.0 / scale_factor)
 	outline.add_child(shape_sprite)
 	
-	# Add particle effect
+	# Add enhanced particle effects - more and prettier
 	var particles = CPUParticles2D.new()
-	particles.amount = 8
-	particles.lifetime = 1.5
+	particles.amount = 16  # More particles
+	particles.lifetime = 2.0  # Longer lifetime
 	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	particles.emission_sphere_radius = radius * 0.6
+	particles.emission_sphere_radius = radius * 0.8  # Larger emission area
 	particles.local_coords = true
 	particles.gravity = Vector2.ZERO
-	particles.initial_velocity_min = 3
-	particles.initial_velocity_max = 8
-	particles.scale_amount_min = 1.5
-	particles.scale_amount_max = 3.0
-	particles.color = shape_color.lightened(0.3)
-	particles.color.a = 0.3
+	particles.initial_velocity_min = 4
+	particles.initial_velocity_max = 12
+	particles.scale_amount_min = 2.5
+	particles.scale_amount_max = 5.0
+	particles.color = shape_color.lightened(0.45)  # Lighter particles
+	particles.color.a = 0.4  # More visible
 	outline.add_child(particles)
 	
-	# Simple subtle animation
+	# Add subtle twinkling stars effect
+	var stars = CPUParticles2D.new()
+	stars.amount = 8
+	stars.lifetime = 3.0
+	stars.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	stars.emission_sphere_radius = radius * 0.9
+	stars.local_coords = true
+	stars.gravity = Vector2.ZERO
+	stars.initial_velocity_min = 1
+	stars.initial_velocity_max = 3
+	stars.angle = 45
+	stars.scale_amount_min = 3.5
+	stars.scale_amount_max = 6.0
+	stars.color = Color(1.0, 0.98, 0.9, 0.6)
+	outline.add_child(stars)
+	
+	# Animate the stars for twinkling effect
+	var stars_tween = create_tween()
+	stars_tween.set_loops()
+	stars_tween.tween_property(stars, "modulate:a", 0.2, 1.5)
+	stars_tween.tween_property(stars, "modulate:a", 0.6, 1.5)
+	
+	# Enhanced glow animation
 	var tween = create_tween()
 	tween.set_loops()
-	tween.tween_property(glow, "scale", Vector2(1.1, 1.1), 2.0).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(glow, "scale", Vector2(1.2, 1.2), 2.0).set_trans(Tween.TRANS_SINE)
 	tween.tween_property(glow, "scale", Vector2(1.0, 1.0), 2.0).set_trans(Tween.TRANS_SINE)
+	
+	# Inner glow animation
+	var inner_tween = create_tween()
+	inner_tween.set_loops()
+	inner_tween.tween_property(inner_glow, "scale", Vector2(1.07, 1.07), 1.2).set_trans(Tween.TRANS_SINE)
+	inner_tween.tween_property(inner_glow, "scale", Vector2(0.95, 0.95), 1.2).set_trans(Tween.TRANS_SINE)
 	
 	# Add rotation animation based on shape type
 	if shape_type == ShapeType.TRIANGLE:
 		var rotation_tween = create_tween()
 		rotation_tween.set_loops()
-		rotation_tween.tween_property(shape_sprite, "rotation", PI/8, 4.0)
-		rotation_tween.tween_property(shape_sprite, "rotation", -PI/8, 4.0)
+		rotation_tween.tween_property(shape_sprite, "rotation", PI/8, 4.0).set_trans(Tween.TRANS_SINE)
+		rotation_tween.tween_property(shape_sprite, "rotation", -PI/8, 4.0).set_trans(Tween.TRANS_SINE)
 	elif shape_type == ShapeType.SQUARE:
 		var rotation_tween = create_tween()
 		rotation_tween.set_loops()
-		rotation_tween.tween_property(shape_sprite, "rotation", PI/12, 5.0)
-		rotation_tween.tween_property(shape_sprite, "rotation", -PI/12, 5.0)
+		rotation_tween.tween_property(shape_sprite, "rotation", PI/12, 5.0).set_trans(Tween.TRANS_SINE)
+		rotation_tween.tween_property(shape_sprite, "rotation", -PI/12, 5.0).set_trans(Tween.TRANS_SINE)
 	
 	# For circle shapes, add a pulsing effect
 	if shape_type == ShapeType.CIRCLE:
 		var pulse_tween = create_tween()
 		pulse_tween.set_loops()
-		pulse_tween.tween_property(shape_sprite, "scale", Vector2(1.05/scale_factor, 1.05/scale_factor), 2.0)
-		pulse_tween.tween_property(shape_sprite, "scale", Vector2(1.0/scale_factor, 1.0/scale_factor), 2.0)
+		pulse_tween.tween_property(shape_sprite, "scale", Vector2(1.09/scale_factor, 1.09/scale_factor), 2.0).set_trans(Tween.TRANS_SINE)
+		pulse_tween.tween_property(shape_sprite, "scale", Vector2(1.0/scale_factor, 1.0/scale_factor), 2.0).set_trans(Tween.TRANS_SINE)
 
 func draw_circle_shape(image: Image, center: Vector2, fill_color: Color, scale_factor: int, is_glow: bool = false):
 	var radius_scaled = radius * scale_factor
-	var aa_width = 2.5 * scale_factor  # Wider anti-aliasing for softer edges
+	var aa_width = 3.0 * scale_factor  # Wider anti-aliasing for ultra-soft edges
 	
 	# More efficient approach with pre-calculated values
 	var width = image.get_width()
@@ -208,29 +245,29 @@ func draw_circle_shape(image: Image, center: Vector2, fill_color: Color, scale_f
 				
 				if dist < radius_scaled * 0.95:
 					var inner_gradient = 1.0 - (dist / (radius_scaled * 0.95))
-					pixel_color = fill_color.lightened(0.4 * inner_gradient * highlight_factor)
+					pixel_color = fill_color.lightened(0.5 * inner_gradient * highlight_factor)
 				else:
-					pixel_color = fill_color.darkened(0.2 * (1.0 - highlight_factor))
+					pixel_color = fill_color.darkened(0.15 * (1.0 - highlight_factor))
 				
 				# Add a subtle warm tint
-				pixel_color.r = min(1.0, pixel_color.r * 1.1)
-				pixel_color.g = min(1.0, pixel_color.g * 1.05)
+				pixel_color.r = min(1.0, pixel_color.r * 1.15)
+				pixel_color.g = min(1.0, pixel_color.g * 1.07)
 				
 				pixel_color.a *= alpha
 				image.set_pixel(x, y, pixel_color)
 
 func draw_triangle_shape(image: Image, center: Vector2, fill_color: Color, scale_factor: int, is_glow: bool = false):
 	var side_length = radius * 2 * scale_factor
-	var aa_width = 2.5 * scale_factor  # Wider anti-aliasing for softer edges
-	var corner_radius = side_length * 0.15  # Add rounded corners
+	var aa_width = 3.0 * scale_factor  # Wider anti-aliasing for ultra-soft edges
+	var corner_radius = side_length * 0.25  # Increased rounded corners for cozier look
 	
 	var width = image.get_width()
 	var height = image.get_height()
 	
-	# Define triangle points with slightly rounded bottom corners
-	var top = Vector2(center.x, center.y - side_length / 1.7)  # Move top point down for a friendlier look
-	var left = Vector2(center.x - side_length / 2, center.y + side_length / 3)
-	var right = Vector2(center.x + side_length / 2, center.y + side_length / 3)
+	# Define triangle points with very rounded corners
+	var top = Vector2(center.x, center.y - side_length / 1.9)  # Move top point down for a friendlier look
+	var left = Vector2(center.x - side_length / 2, center.y + side_length / 3.5)
+	var right = Vector2(center.x + side_length / 2, center.y + side_length / 3.5)
 	
 	for x in range(width):
 		for y in range(height):
@@ -300,14 +337,14 @@ func draw_triangle_shape(image: Image, center: Vector2, fill_color: Color, scale
 				var center_factor = 1.0 - min(1.0, center_dist / (side_length * 0.4))
 				
 				if center_factor > 0.2:
-					pixel_color = fill_color.lightened(0.3 * center_factor)
+					pixel_color = fill_color.lightened(0.4 * center_factor)
 				else:
 					# Slight darkening at edges
 					pixel_color = fill_color.darkened(0.1 * (1.0 - height_pos))
 				
 				# Add warm tint
-				pixel_color.r = min(1.0, pixel_color.r * 1.1)
-				pixel_color.g = min(1.0, pixel_color.g * 1.05)
+				pixel_color.r = min(1.0, pixel_color.r * 1.15)
+				pixel_color.g = min(1.0, pixel_color.g * 1.07)
 				
 				pixel_color.a = alpha
 				image.set_pixel(x, y, pixel_color)
@@ -323,8 +360,8 @@ func dist_point_to_line(p: Vector2, a: Vector2, b: Vector2) -> float:
 
 func draw_square_shape(image: Image, center: Vector2, fill_color: Color, scale_factor: int, is_glow: bool = false):
 	var side_length = radius * 2 * scale_factor
-	var corner_radius = side_length * 0.2  # Significant corner radius for a rounder square
-	var aa_width = 2.5 * scale_factor  # Wider anti-aliasing for softer edges
+	var corner_radius = side_length * 0.4  # Increased corner radius for extra cozy round square
+	var aa_width = 4.0 * scale_factor  # Wider anti-aliasing for ultra-soft edges
 	
 	var width = image.get_width()
 	var height = image.get_height()
@@ -397,7 +434,7 @@ func draw_square_shape(image: Image, center: Vector2, fill_color: Color, scale_f
 				var rel_x = float(x - rect_min_x) / side_length
 				var rel_y = float(y - rect_min_y) / side_length
 				
-				# Create gradient from corner to corner
+				# Create softer gradient from corner to corner
 				var highlight_factor = (rel_x + rel_y) / 2.0
 				
 				# Inner lighter area for a plush appearance
@@ -405,13 +442,13 @@ func draw_square_shape(image: Image, center: Vector2, fill_color: Color, scale_f
 				var center_factor = 1.0 - min(1.0, center_dist / (side_length * 0.4))
 				
 				if center_factor > 0.3:
-					pixel_color = fill_color.lightened(0.3 * center_factor)
+					pixel_color = fill_color.lightened(0.45 * center_factor)
 				else:
-					pixel_color = fill_color.darkened(0.15 * (1.0 - highlight_factor))
+					pixel_color = fill_color.darkened(0.12 * (1.0 - highlight_factor))
 				
 				# Add warm tint
-				pixel_color.r = min(1.0, pixel_color.r * 1.1)
-				pixel_color.g = min(1.0, pixel_color.g * 1.05)
+				pixel_color.r = min(1.0, pixel_color.r * 1.18)
+				pixel_color.g = min(1.0, pixel_color.g * 1.09)
 				
 				pixel_color.a = alpha
 				image.set_pixel(x, y, pixel_color)
@@ -433,17 +470,17 @@ func is_point_in_triangle(p: Vector2, a: Vector2, b: Vector2, c: Vector2) -> boo
 func get_color_from_enum() -> Color:  # Converts ShapeColor enum to Color object
 	match color:  # Match against current color
 		ShapeColor.RED:
-			return Color(0.95, 0.4, 0.3, 1)  # Warmer red
+			return Color(0.98, 0.42, 0.35, 1)  # Warmer, softer red
 		ShapeColor.BLUE:
-			return Color(0.5, 0.6, 0.9, 1)  # Warmer blue
+			return Color(0.52, 0.68, 0.97, 1)  # Warmer, softer blue
 		ShapeColor.GREEN:
-			return Color(0.5, 0.85, 0.4, 1)  # Warmer green
+			return Color(0.52, 0.90, 0.42, 1)  # Warmer, softer green
 		ShapeColor.YELLOW:
-			return Color(1.0, 0.85, 0.3, 1)  # Warmer yellow
+			return Color(1.0, 0.9, 0.38, 1)    # Warmer, softer yellow
 		ShapeColor.PURPLE:
-			return Color(0.8, 0.45, 0.8, 1)  # Warmer purple
+			return Color(0.88, 0.52, 0.88, 1)   # Warmer, softer purple
 		_:  # Default case
-			return Color(1.0, 0.9, 0.8, 1)  # Warm white
+			return Color(1.0, 0.92, 0.85, 1)   # Warm white
 
 func connect_signals():
 	# Connect the built-in body_entered signal to our custom function
@@ -603,77 +640,169 @@ func create_destroy_effect():
 	var global_pos = global_position
 	var effect_color = get_color_from_enum()
 	
+	# Create a soft light flash
+	var flash = ColorRect.new()
+	get_tree().root.add_child(flash)
+	flash.size = Vector2(radius * 6, radius * 6)
+	flash.position = global_pos - Vector2(radius * 3, radius * 3)
+	flash.color = Color(1.0, 0.98, 0.95, 0.7)
+	
+	var flash_tween = create_tween()
+	flash_tween.tween_property(flash, "color:a", 0.0, 0.4)
+	flash_tween.tween_callback(flash.queue_free)
+	
 	# Main explosion particles
 	var particles = CPUParticles2D.new()
 	get_tree().root.add_child(particles)
 	particles.position = global_pos
-	particles.amount = 30
-	particles.lifetime = 0.8
+	particles.amount = 50 # More particles
+	particles.lifetime = 1.2
 	particles.explosiveness = 1.0
 	particles.one_shot = true
 	particles.emitting = true
 	particles.spread = 180
-	particles.gravity = Vector2(0, 100)
-	particles.initial_velocity_min = 60
-	particles.initial_velocity_max = 120
-	particles.scale_amount_min = 3.0
-	particles.scale_amount_max = 6.0
-	particles.color = effect_color
+	particles.gravity = Vector2(0, 70)
+	particles.initial_velocity_min = 70
+	particles.initial_velocity_max = 160
+	particles.scale_amount_min = 3.5
+	particles.scale_amount_max = 8.0
+	particles.color = effect_color.lightened(0.25)
 	
 	# Small sparkle particles
 	var sparkles = CPUParticles2D.new()
 	get_tree().root.add_child(sparkles)
 	sparkles.position = global_pos
-	sparkles.amount = 15
-	sparkles.lifetime = 1.0
+	sparkles.amount = 25
+	sparkles.lifetime = 1.4
 	sparkles.explosiveness = 1.0
 	sparkles.one_shot = true
 	sparkles.emitting = true
 	sparkles.spread = 180
-	sparkles.gravity = Vector2(0, 50)
-	sparkles.initial_velocity_min = 80
-	sparkles.initial_velocity_max = 150
-	sparkles.scale_amount_min = 1.0
-	sparkles.scale_amount_max = 2.0
-	sparkles.color = Color(1, 1, 1, 0.8)
+	sparkles.gravity = Vector2(0, 35)
+	sparkles.initial_velocity_min = 100
+	sparkles.initial_velocity_max = 200
+	sparkles.scale_amount_min = 2.0
+	sparkles.scale_amount_max = 4.0
+	sparkles.color = Color(1.0, 0.98, 0.9, 0.8)
 	
-	# Flash effect
-	var flash = ColorRect.new()
-	get_tree().root.add_child(flash)
-	flash.size = Vector2(radius * 4, radius * 4)
-	flash.position = global_pos - Vector2(radius * 2, radius * 2)
-	flash.color = effect_color.lightened(0.5)
-	flash.color.a = 0.8
+	# Add some heart-shaped particles for extra cuteness!
+	var heart_particles = CPUParticles2D.new()
+	get_tree().root.add_child(heart_particles)
+	heart_particles.position = global_pos
+	heart_particles.amount = 8
+	heart_particles.lifetime = 1.8
+	heart_particles.explosiveness = 0.9
+	heart_particles.one_shot = true
+	heart_particles.emitting = true
+	heart_particles.spread = 180
+	heart_particles.gravity = Vector2(0, 25)
+	heart_particles.initial_velocity_min = 45
+	heart_particles.initial_velocity_max = 90
+	heart_particles.scale_amount_min = 5.0
+	heart_particles.scale_amount_max = 9.0
+	heart_particles.color = Color(1.0, 0.5, 0.6, 0.8) # Pink hearts
 	
-	# Animate flash
-	var flash_tween = create_tween()
-	flash_tween.tween_property(flash, "color:a", 0.0, 0.4)
-	flash_tween.tween_callback(flash.queue_free)
+	# Create heart texture (simplified)
+	var heart_texture = create_heart_texture()
+	if heart_texture != null:
+		heart_particles.texture = heart_texture
 	
-	# Ring effect
-	var ring = ColorRect.new()
+	# Expanding ring effect
+	var ring = Sprite2D.new()
 	get_tree().root.add_child(ring)
-	ring.size = Vector2(10, 10)
-	ring.position = global_pos - Vector2(5, 5)
-	ring.color = effect_color.lightened(0.3)
-	ring.color.a = 0.7
+	ring.position = global_pos
+	
+	# Create soft blurred ring
+	var ring_img = Image.create(128, 128, false, Image.FORMAT_RGBA8)
+	ring_img.fill(Color(0, 0, 0, 0))
+	
+	var center = Vector2(64, 64)
+	var ring_radius = 60
+	var ring_width = 10
+	
+	for x in range(128):
+		for y in range(128):
+			var dist = Vector2(x, y).distance_to(center)
+			if dist > ring_radius - ring_width && dist < ring_radius + ring_width:
+				var alpha = 1.0 - abs(dist - ring_radius) / ring_width
+				var color = effect_color.lightened(0.4)
+				color.a = alpha * 0.8
+				ring_img.set_pixel(x, y, color)
+	
+	ring.texture = ImageTexture.create_from_image(ring_img)
+	ring.scale = Vector2(0.5, 0.5)
 	
 	# Animate ring
 	var ring_tween = create_tween()
-	ring_tween.tween_property(ring, "scale", Vector2(12, 12), 0.5).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	ring_tween.parallel().tween_property(ring, "color:a", 0.0, 0.5)
+	ring_tween.tween_property(ring, "scale", Vector2(3.5, 3.5), 0.8).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.8)
 	ring_tween.tween_callback(ring.queue_free)
+	
+	# Add star burst
+	var star_burst = Sprite2D.new()
+	get_tree().root.add_child(star_burst)
+	star_burst.position = global_pos
+	
+	# Create star burst texture
+	var star_img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	star_img.fill(Color(0, 0, 0, 0))
+	
+	var star_center = Vector2(32, 32)
+	var ray_count = 8
+	
+	for ray in range(ray_count):
+		var angle = ray * 2 * PI / ray_count
+		var direction = Vector2(cos(angle), sin(angle))
+		var ray_length = 25.0
+		
+		for step in range(int(ray_length)):
+			var pos = star_center + direction * step
+			if pos.x >= 0 and pos.x < 64 and pos.y >= 0 and pos.y < 64:
+				var alpha = 1.0 - step / ray_length
+				star_img.set_pixel(int(pos.x), int(pos.y), Color(1.0, 0.95, 0.7, alpha * 0.6))
+	
+	star_burst.texture = ImageTexture.create_from_image(star_img)
+	star_burst.scale = Vector2(0.1, 0.1)
+	
+	var star_tween = create_tween()
+	star_tween.tween_property(star_burst, "scale", Vector2(2.5, 2.5), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	star_tween.parallel().tween_property(star_burst, "modulate:a", 0.0, 0.5).set_delay(0.2)
+	star_tween.tween_callback(star_burst.queue_free)
 	
 	# Clean up particles
 	var timer = Timer.new()
 	particles.add_child(timer)
-	timer.wait_time = 1.0
+	timer.wait_time = 1.8
 	timer.one_shot = true
 	timer.timeout.connect(func(): 
 		particles.queue_free()
 		sparkles.queue_free()
+		heart_particles.queue_free()
 	)
 	timer.start()
+
+func create_heart_texture() -> Texture2D:
+	# Create a simple heart shape texture
+	var img = Image.create(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var center_x = 16
+	var center_y = 20
+	
+	for x in range(32):
+		for y in range(32):
+			var px = float(x - center_x) / 16
+			var py = float(y - center_y) / 16
+			
+			# Heart shape formula - simplified
+			var inside_heart = pow(px, 2) + pow(py - 0.5 * sqrt(abs(px)), 2) < 0.6
+			
+			if inside_heart:
+				var dist_from_center = Vector2(px, py).length()
+				var brightness = 1.0 - min(1.0, dist_from_center * 0.8)
+				img.set_pixel(x, y, Color(1, 0.5, 0.6, brightness))
+	
+	return ImageTexture.create_from_image(img)
 
 func preload_sounds():
 	# Try to find sound files in common locations

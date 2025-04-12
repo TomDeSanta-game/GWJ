@@ -32,15 +32,21 @@ var grid_layer_offset = Vector2(0, 0)
 var cell_highlights = []
 var cell_pulse_nodes = []
 var match_checking_active = false
-var grid_lines_color = Color(0.9, 0.7, 0.5, 0.3)
+var grid_lines_color = Color(0.9, 0.8, 0.7, 0.2)  # Softer, warmer color
 var time_since_last_pulse = 0.0
 var pulse_interval = 2.0  # Seconds between grid pulses
+var grid_sparkle_positions = []
+var grid_sparkle_alphas = []
+var grid_sparkle_sizes = []
+var sparkle_tween: Tween
+var near_match_cells = []  # Array to store grid positions for near matches
 
 func _ready():
 	SignalBus.shape_collided.connect(_on_shape_collided)
 	create_grid_highlights()
 	enhance_grid_lines()
 	add_grid_particles()
+	add_ambient_effects()
 
 func _process(delta):
 	# Visual effects
@@ -142,11 +148,11 @@ func create_grid_highlights():
 		for y in range(grid_height):
 			var highlight = Sprite2D.new()
 			
-			# Create rounded rectangle
+			# Create rounded rectangle with softer corners
 			var img = Image.create(cell_size - 4, cell_size - 4, false, Image.FORMAT_RGBA8)
 			img.fill(Color(0, 0, 0, 0))
 			
-			var corner_radius = 10
+			var corner_radius = 18  # Increased corner radius for cozier look
 			var width = cell_size - 4
 			var height = cell_size - 4
 			
@@ -175,12 +181,12 @@ func create_grid_highlights():
 					
 					if in_corner:
 						if corner_dist <= corner_radius:
-							# Soft gradient at edges
+							# Softer gradient at edges with warmer colors
 							var alpha = 1.0 - (corner_dist / corner_radius) * 0.7
-							img.set_pixel(px, py, Color(1.0, 0.9, 0.8, alpha * 0.15))
+							img.set_pixel(px, py, Color(1.0, 0.95, 0.9, alpha * 0.17))
 					else:
-						# Main body of the rectangle
-						img.set_pixel(px, py, Color(1.0, 0.9, 0.8, 0.15))
+						# Main body of the rectangle with warmer color
+						img.set_pixel(px, py, Color(1.0, 0.95, 0.9, 0.17))
 			
 			highlight.texture = ImageTexture.create_from_image(img)
 			highlight.position = Vector2(x * cell_size + cell_size/2, y * cell_size + cell_size/2)
@@ -313,19 +319,76 @@ func create_ripple_effect(position):
 	tween.tween_callback(ripple.queue_free)
 
 func highlight_cell(grid_pos):
-	# Add a visual highlight effect to the cell
-	var highlight = ColorRect.new()
-	highlight.color = Color(1, 1, 1, 0.5)
-	highlight.size = Vector2(cell_size, cell_size)
-	highlight.position = Vector2(grid_pos.x * cell_size, grid_pos.y * cell_size)
+	# Add a visual highlight effect to the cell - cozier version
+	var highlight = Node2D.new()
+	highlight.position = Vector2(grid_pos.x * cell_size + cell_size/2, grid_pos.y * cell_size + cell_size/2)
 	highlight.z_index = 1
 	add_child(highlight)
 	
-	# Enhanced fade out animation
+	# Create a rounded rectangle highlight instead of a square
+	var size = cell_size - 10
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var corner_radius = 20
+	
+	for x in range(size):
+		for y in range(size):
+			var in_corner = false
+			var corner_dist = 0.0
+			
+			# Check if in corner regions
+			if x < corner_radius && y < corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(corner_radius, corner_radius))
+				in_corner = true
+			elif x >= size - corner_radius && y < corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(size - corner_radius, corner_radius))
+				in_corner = true
+			elif x < corner_radius && y >= size - corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(corner_radius, size - corner_radius))
+				in_corner = true
+			elif x >= size - corner_radius && y >= size - corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(size - corner_radius, size - corner_radius))
+				in_corner = true
+			
+			if in_corner:
+				if corner_dist <= corner_radius:
+					var alpha = 1.0 - (corner_dist / corner_radius) * 0.5
+					img.set_pixel(x, y, Color(1.0, 0.95, 0.85, alpha * 0.7))
+			else:
+				img.set_pixel(x, y, Color(1.0, 0.95, 0.85, 0.7))
+	
+	var sprite = Sprite2D.new()
+	sprite.texture = ImageTexture.create_from_image(img)
+	sprite.position = Vector2(0, 0)
+	highlight.add_child(sprite)
+	
+	# Enhanced fade out animation with scaling
 	var tween = create_tween()
-	tween.tween_property(highlight, "color", Color(0.7, 0.9, 1.0, 0.7), 0.2)
-	tween.tween_property(highlight, "color", Color(0.7, 0.9, 1.0, 0), 0.5)
+	tween.set_parallel(true)
+	tween.tween_property(sprite, "scale", Vector2(1.1, 1.1), 0.2).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(sprite, "modulate", Color(1.0, 0.95, 0.85, 0.9), 0.2)
+	tween.chain().set_parallel(false)
+	tween.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_SINE)
+	tween.parallel().tween_property(sprite, "modulate", Color(0.7, 0.9, 1.0, 0), 0.6)
 	tween.tween_callback(highlight.queue_free)
+	
+	# Add particles
+	var particles = CPUParticles2D.new()
+	particles.amount = 15
+	particles.lifetime = 0.6
+	particles.explosiveness = 0.7
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = size / 4
+	particles.direction = Vector2(0, -1)
+	particles.spread = 180
+	particles.gravity = Vector2(0, 5)
+	particles.initial_velocity_min = 10
+	particles.initial_velocity_max = 30
+	particles.scale_amount_min = 2
+	particles.scale_amount_max = 4
+	particles.color = Color(1.0, 0.95, 0.85, 0.5)
+	highlight.add_child(particles)
 
 func check_matches(start_pos):
 	match_checking_active = true
@@ -529,17 +592,270 @@ func check_for_near_matches(start_pos):
 			highlight_near_match(pos)
 
 func highlight_near_match(grid_pos):
-	# Subtle highlight to indicate a near-match
-	var highlight = ColorRect.new()
-	highlight.color = Color(1.0, 0.9, 0.5, 0.3)
-	highlight.size = Vector2(cell_size, cell_size)
-	highlight.position = Vector2(grid_pos.x * cell_size, grid_pos.y * cell_size)
+	# Subtle highlight to indicate a near-match - more cozy version
+	var highlight = Node2D.new()
+	highlight.position = Vector2(grid_pos.x * cell_size + cell_size/2, grid_pos.y * cell_size + cell_size/2)
 	highlight.z_index = 1
 	add_child(highlight)
+	
+	# Rounded rectangle highlight
+	var size = cell_size - 15
+	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var corner_radius = 20
+	
+	for x in range(size):
+		for y in range(size):
+			var in_corner = false
+			var corner_dist = 0.0
+			
+			# Check if in corner regions
+			if x < corner_radius && y < corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(corner_radius, corner_radius))
+				in_corner = true
+			elif x >= size - corner_radius && y < corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(size - corner_radius, corner_radius))
+				in_corner = true
+			elif x < corner_radius && y >= size - corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(corner_radius, size - corner_radius))
+				in_corner = true
+			elif x >= size - corner_radius && y >= size - corner_radius:
+				corner_dist = Vector2(x, y).distance_to(Vector2(size - corner_radius, size - corner_radius))
+				in_corner = true
+			
+			if in_corner:
+				if corner_dist <= corner_radius:
+					var alpha = 1.0 - (corner_dist / corner_radius) * 0.5
+					img.set_pixel(x, y, Color(1.0, 0.9, 0.5, alpha * 0.3))
+			else:
+				img.set_pixel(x, y, Color(1.0, 0.9, 0.5, 0.3))
+	
+	var sprite = Sprite2D.new()
+	sprite.texture = ImageTexture.create_from_image(img)
+	sprite.position = Vector2(0, 0)
+	highlight.add_child(sprite)
 	
 	# Subtle pulse animation
 	var tween = create_tween()
 	tween.set_loops(3)
-	tween.tween_property(highlight, "color:a", 0.1, 0.5)
-	tween.tween_property(highlight, "color:a", 0.3, 0.5)
+	tween.tween_property(sprite, "scale", Vector2(1.05, 1.05), 0.5).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(sprite, "scale", Vector2(0.95, 0.95), 0.5).set_trans(Tween.TRANS_SINE)
+	tween.chain()
+	tween.tween_property(sprite, "modulate:a", 0, 0.3)
 	tween.tween_callback(highlight.queue_free)
+	
+	# Add subtle particles
+	var particles = CPUParticles2D.new()
+	particles.amount = 10
+	particles.lifetime = 1.0
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = size / 6
+	particles.local_coords = false
+	particles.direction = Vector2(0, -1)
+	particles.spread = 90
+	particles.gravity = Vector2(0, 2)
+	particles.initial_velocity_min = 5
+	particles.initial_velocity_max = 15
+	particles.scale_amount_min = 1.5
+	particles.scale_amount_max = 3
+	particles.color = Color(1.0, 0.9, 0.5, 0.2)
+	highlight.add_child(particles)
+
+func add_ambient_effects():
+	# Grid sparkles
+	grid_sparkle_positions = []
+	grid_sparkle_alphas = []
+	grid_sparkle_sizes = []
+	
+	# Create more sparkles for a richer effect
+	for i in range(20):  # Increased from 12
+		var pos = Vector2(
+			randf_range(0, grid_width * cell_size),
+			randf_range(0, grid_height * cell_size)
+		)
+		grid_sparkle_positions.append(pos)
+		grid_sparkle_alphas.append(randf_range(0.1, 0.5))  # Higher alpha range
+		grid_sparkle_sizes.append(randf_range(1.0, 3.0))  # Larger size range
+	
+	# Animate the sparkles
+	sparkle_tween = create_tween()
+	sparkle_tween.set_loops()
+	
+	for i in range(grid_sparkle_positions.size()):
+		# Create individual tweens for each sparkle
+		var individual_tween = create_tween()
+		individual_tween.set_loops()
+		
+		# Get random times for tween durations
+		var fade_in_time = randf_range(1.0, 2.5)
+		var fade_out_time = randf_range(1.0, 2.5)
+		var delay_time = randf_range(0.0, 2.0)
+		
+		# Create smoother fade animations
+		individual_tween.tween_property(self, "grid_sparkle_alphas[" + str(i) + "]", 0.0, fade_out_time).set_trans(Tween.TRANS_SINE)
+		individual_tween.tween_property(self, "grid_sparkle_alphas[" + str(i) + "]", randf_range(0.3, 0.6), fade_in_time).set_trans(Tween.TRANS_SINE)
+		
+		# Also animate the size for a twinkling effect
+		var size_tween = create_tween()
+		size_tween.set_loops()
+		size_tween.tween_property(self, "grid_sparkle_sizes[" + str(i) + "]", randf_range(0.5, 1.5), fade_out_time).set_trans(Tween.TRANS_SINE)
+		size_tween.tween_property(self, "grid_sparkle_sizes[" + str(i) + "]", randf_range(1.5, 3.5), fade_in_time).set_trans(Tween.TRANS_SINE)
+	
+	# Add floating particles for a dreamy effect
+	var particles = CPUParticles2D.new()
+	add_child(particles)
+	particles.amount = 15
+	particles.lifetime = 8.0
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	particles.emission_rect_extents = Vector2(grid_width * cell_size / 2, 5)
+	particles.position = Vector2(grid_width * cell_size / 2, grid_height * cell_size + 10)
+	particles.gravity = Vector2(0, -10)  # Gentle upward float
+	particles.initial_velocity_min = 10
+	particles.initial_velocity_max = 20
+	particles.scale_amount_min = 2.0
+	particles.scale_amount_max = 4.0
+	particles.color = Color(0.9, 0.95, 1.0, 0.15)  # Soft blue-white
+
+	# Add a subtle pulse effect to the entire grid
+	var grid_pulse = create_tween()
+	grid_pulse.set_loops()
+	grid_pulse.tween_property(self, "modulate", Color(1.05, 1.05, 1.08, 1.0), 3.0).set_trans(Tween.TRANS_SINE)
+	grid_pulse.tween_property(self, "modulate", Color(0.95, 0.95, 0.98, 1.0), 3.0).set_trans(Tween.TRANS_SINE)
+
+func create_match_pulse(grid_pos: Vector2i, color: Color, match_size: int = 3):
+	var pulse = ColorRect.new()
+	add_child(pulse)
+	
+	var pos = Vector2(grid_pos.x * cell_size, grid_pos.y * cell_size)
+	var pulse_size = cell_size * (1.0 + match_size * 0.2)  # Scale based on match size
+	
+	pulse.size = Vector2(pulse_size, pulse_size)
+	pulse.position = pos + Vector2(cell_size/2, cell_size/2) - Vector2(pulse_size/2, pulse_size/2)
+	
+	# Make color softer and warmer
+	var pulse_color = color.lightened(0.3)
+	pulse_color.a = 0.0  # Start transparent
+	pulse.color = pulse_color
+	
+	# Create a more dynamic and smooth pulse effect
+	var pulse_tween = create_tween()
+	
+	# Fade in with slight expansion
+	pulse_tween.tween_property(pulse, "color:a", 0.5, 0.2).set_trans(Tween.TRANS_SINE)
+	pulse_tween.parallel().tween_property(pulse, "size", Vector2(pulse_size * 1.2, pulse_size * 1.2), 0.2).set_trans(Tween.TRANS_SINE)
+	pulse_tween.parallel().tween_property(pulse, "position", 
+		pos + Vector2(cell_size/2, cell_size/2) - Vector2(pulse_size * 1.2/2, pulse_size * 1.2/2), 0.2)
+	
+	# Expand and fade
+	pulse_tween.tween_property(pulse, "color:a", 0.0, 0.5).set_trans(Tween.TRANS_SINE)
+	pulse_tween.parallel().tween_property(pulse, "size", Vector2(pulse_size * 2.2, pulse_size * 2.2), 0.5).set_trans(Tween.TRANS_SINE)
+	pulse_tween.parallel().tween_property(pulse, "position", 
+		pos + Vector2(cell_size/2, cell_size/2) - Vector2(pulse_size * 2.2/2, pulse_size * 2.2/2), 0.5)
+	
+	# Clean up when done
+	pulse_tween.tween_callback(pulse.queue_free)
+	
+	# Add floating particles from the match
+	var particles = CPUParticles2D.new()
+	add_child(particles)
+	particles.position = pos + Vector2(cell_size/2, cell_size/2)
+	particles.amount = 12 + match_size * 4  # More particles for larger matches
+	particles.lifetime = 1.5
+	particles.one_shot = true
+	particles.explosiveness = 0.8
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = cell_size * 0.3
+	particles.spread = 180
+	particles.gravity = Vector2(0, -30)  # Slight upward drift
+	particles.initial_velocity_min = 20
+	particles.initial_velocity_max = 40
+	particles.scale_amount_min = 2.0
+	particles.scale_amount_max = 4.0
+	particles.color = pulse_color
+	particles.color.a = 0.6
+	particles.emitting = true
+	
+	# Add twinkling stars
+	var stars = CPUParticles2D.new()
+	add_child(stars)
+	stars.position = pos + Vector2(cell_size/2, cell_size/2)
+	stars.amount = 6
+	stars.lifetime = 1.0
+	stars.one_shot = true
+	stars.explosiveness = 1.0
+	stars.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	stars.emission_sphere_radius = cell_size * 0.2
+	stars.spread = 180
+	stars.gravity = Vector2.ZERO
+	stars.initial_velocity_min = 40
+	stars.initial_velocity_max = 80
+	stars.scale_amount_min = 3.0
+	stars.scale_amount_max = 5.0
+	stars.color = Color(1.0, 1.0, 0.9, 0.8)
+	stars.emitting = true
+	
+	# Clean up particles
+	var timer = Timer.new()
+	particles.add_child(timer)
+	timer.wait_time = 2.0
+	timer.one_shot = true
+	timer.timeout.connect(func():
+		particles.queue_free()
+		stars.queue_free()
+	)
+	timer.start()
+
+func _draw():
+	# Draw grid background with a soft gradient
+	var bg_rect = Rect2(0, 0, grid_width * cell_size, grid_height * cell_size)
+	var bg_color1 = Color(0.14, 0.15, 0.22, 0.6)  # Darker blue-purple
+	var bg_color2 = Color(0.20, 0.21, 0.28, 0.6)  # Lighter blue-purple
+	
+	# Draw soft gradient background
+	draw_rect(bg_rect, bg_color1, true)
+	
+	# Draw a nicer inner shadow on the grid for depth
+	var shadow_width = 15
+	var shadow_rect = Rect2(shadow_width, shadow_width, 
+		grid_width * cell_size - shadow_width * 2, 
+		grid_height * cell_size - shadow_width * 2)
+	var shadow_color = Color(0.22, 0.23, 0.3, 0.3)
+	draw_rect(shadow_rect, shadow_color, false, shadow_width)
+	
+	# Draw subtle grid sparkles
+	for i in range(grid_sparkle_positions.size()):
+		var pos = grid_sparkle_positions[i]
+		var alpha = grid_sparkle_alphas[i]
+		var size = grid_sparkle_sizes[i]
+		var sparkle_color = Color(0.95, 0.92, 0.75, alpha * 0.5)
+		draw_circle(pos, size, sparkle_color)
+	
+	# Draw the grid lines with enhanced aesthetics
+	for row in range(grid_height + 1):
+		var y = row * cell_size
+		var line_color = Color(0.4, 0.42, 0.5, 0.2)  # Soft grid line color
+		var line_width = 1.5  # Slightly thicker
+		draw_line(Vector2(0, y), Vector2(grid_width * cell_size, y), line_color, line_width, true)
+	
+	for col in range(grid_width + 1):
+		var x = col * cell_size
+		var line_color = Color(0.4, 0.42, 0.5, 0.2)  # Soft grid line color
+		var line_width = 1.5  # Slightly thicker
+		draw_line(Vector2(x, 0), Vector2(x, grid_height * cell_size), line_color, line_width, true)
+	
+	# Draw cell highlights and match indicators
+	for row in range(grid_height):
+		for col in range(grid_width):
+			var cell_pos = Vector2(col * cell_size, row * cell_size)
+			var cell_center = cell_pos + Vector2(cell_size / 2, cell_size / 2)
+			
+			# Draw near-match highlights with a nicer glow
+			if near_match_cells.has(Vector2i(col, row)):
+				var highlight_color = Color(1.0, 0.9, 0.4, 0.15)  # Softer yellow glow
+				var highlight_radius = cell_size * 0.6  # Larger radius
+				draw_circle(cell_center, highlight_radius, highlight_color)
+				
+				# Add inner highlight for more depth
+				var inner_highlight = Color(1.0, 0.95, 0.85, 0.15)
+				draw_circle(cell_center, highlight_radius * 0.6, inner_highlight)
