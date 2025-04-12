@@ -1,0 +1,204 @@
+[gd_scene load_steps=7 format=3 uid="uid://bs63owhebywam"]
+
+[ext_resource type="Script" uid="uid://notx2lkyundp" path="res://scripts/game_manager.gd" id="1_m7yfu"]
+[ext_resource type="Script" uid="uid://cg0u4nqptpfae" path="res://scripts/grid.gd" id="2_uw6ys"]
+[ext_resource type="Script" uid="uid://bfaltgio4e5fa" path="res://scripts/launcher.gd" id="3_1e6a1"]
+[ext_resource type="PackedScene" uid="uid://ckrjns83yjgt3" path="res://scenes/Shape.tscn" id="4_77nxu"]
+
+[sub_resource type="Gradient" id="Gradient_jc2gh"]
+colors = PackedColorArray(0.0313726, 0.0156863, 0.105882, 1, 0.0941176, 0.0627451, 0.25098, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_e32x8"]
+gradient = SubResource("Gradient_jc2gh")
+fill_to = Vector2(0, 1)
+width = 1200
+height = 1200
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_m7yfu")
+shape_scene = ExtResource("4_77nxu")
+
+[node name="Background" type="TextureRect" parent="."]
+offset_left = -300.0
+offset_top = -300.0
+offset_right = 950.0
+offset_bottom = 950.0
+texture = SubResource("GradientTexture2D_e32x8")
+
+[node name="GameTitle" type="Node2D" parent="."]
+position = Vector2(320, 30)
+
+[node name="TitleBackground" type="ColorRect" parent="GameTitle"]
+offset_left = -320.0
+offset_top = -30.0
+offset_right = 320.0
+offset_bottom = 40.0
+color = Color(0.113725, 0.105882, 0.2, 0.764706)
+
+[node name="TitleText" type="Label" parent="GameTitle"]
+offset_left = -150.0
+offset_top = -15.0
+offset_right = 150.0
+offset_bottom = 15.0
+theme_override_font_sizes/font_size = 24
+text = "Cosmic Blocks"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Grid" type="Node2D" parent="."]
+script = ExtResource("2_uw6ys")
+
+[node name="GridBorder" type="ColorRect" parent="Grid"]
+offset_left = -10.0
+offset_top = -10.0
+offset_right = 650.0
+offset_bottom = 710.0
+color = Color(0.239216, 0.239216, 0.329412, 0.74902)
+
+[node name="GridArea" type="ColorRect" parent="Grid"]
+offset_right = 640.0
+offset_bottom = 700.0
+color = Color(0.0627451, 0.0431373, 0.176471, 0.901961)
+
+[node name="GridLines" type="Node2D" parent="Grid"]
+
+[node name="HorizontalLines" type="Node2D" parent="Grid/GridLines"]
+
+[node name="Line1" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 100)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line2" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 200)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line3" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 300)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line4" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 400)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line5" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 500)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line6" type="Line2D" parent="Grid/GridLines/HorizontalLines"]
+position = Vector2(0, 600)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="VerticalLines" type="Node2D" parent="Grid/GridLines"]
+
+[node name="Line1" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(100, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line2" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(200, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line3" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(300, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line4" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(400, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line5" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(500, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="Line6" type="Line2D" parent="Grid/GridLines/VerticalLines"]
+position = Vector2(600, 0)
+points = PackedVector2Array(0, 0, 0, 700)
+width = 1.0
+default_color = Color(0.427451, 0.427451, 0.517647, 0.196078)
+
+[node name="GameOverLine" type="Line2D" parent="Grid"]
+position = Vector2(0, 640)
+points = PackedVector2Array(0, 0, 640, 0)
+width = 3.0
+default_color = Color(0.933333, 0.254902, 0.239216, 0.741176)
+
+[node name="Launcher" type="Node2D" parent="."]
+position = Vector2(320, 720)
+script = ExtResource("3_1e6a1")
+shape_scene = ExtResource("4_77nxu")
+launch_speed = 800.0
+
+[node name="LauncherGlow" type="ColorRect" parent="Launcher"]
+offset_left = -40.0
+offset_top = -40.0
+offset_right = 40.0
+offset_bottom = 40.0
+color = Color(0.466667, 0.607843, 0.827451, 0.109804)
+
+[node name="LauncherBase" type="ColorRect" parent="Launcher"]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(0.356863, 0.356863, 0.517647, 1)
+pivot_offset = Vector2(30, 30)
+
+[node name="LauncherCore" type="ColorRect" parent="Launcher"]
+offset_left = -20.0
+offset_top = -20.0
+offset_right = 20.0
+offset_bottom = 20.0
+color = Color(0.290196, 0.321569, 0.517647, 1)
+pivot_offset = Vector2(20, 20)
+
+[node name="LauncherDirection" type="Line2D" parent="Launcher"]
+points = PackedVector2Array(0, 0, 80, 0)
+width = 3.0
+default_color = Color(0.811765, 0.937255, 1, 0.839216)
+
+[node name="ControlsHint" type="Label" parent="."]
+offset_left = 10.0
+offset_top = 660.0
+offset_right = 210.0
+offset_bottom = 690.0
+text = "Click to launch"
+
+[node name="ScoreDisplay" type="Node2D" parent="."]
+position = Vector2(320, 755)
+
+[node name="ScoreBackground" type="ColorRect" parent="ScoreDisplay"]
+offset_left = -200.0
+offset_top = -20.0
+offset_right = 200.0
+offset_bottom = 20.0
+color = Color(0.188235, 0.188235, 0.243137, 0.498039)
+
+[node name="ScoreLabel" type="Label" parent="ScoreDisplay"]
+offset_left = -150.0
+offset_top = -15.0
+offset_right = 150.0
+offset_bottom = 15.0
+text = "SCORE: 0"
+horizontal_alignment = 1
