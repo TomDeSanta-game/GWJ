@@ -13,11 +13,11 @@ var level_number: int = 1
 var shapes_destroyed: int = 0
 var shapes_for_next_level: int = 20
 var backgrounds = [
-	Color(0.7, 0.85, 1.0, 1), # Sky blue
-	Color(0.5, 0.7, 0.9, 1),  # Deep blue
-	Color(0.3, 0.5, 0.8, 1),  # Evening blue
-	Color(0.2, 0.3, 0.6, 1),  # Night blue
-	Color(0.1, 0.1, 0.2, 1)   # Night
+	Color(0.92, 0.95, 0.98, 1), 
+	Color(0.85, 0.91, 0.98, 1),  
+	Color(0.94, 0.82, 0.75, 1),  
+	Color(0.85, 0.72, 0.85, 1),  
+	Color(0.7, 0.78, 0.85, 1)   
 ]
 
 func _ready() -> void:
@@ -25,7 +25,6 @@ func _ready() -> void:
 	setup_input_map()
 	connect_signals()
 	spawn_initial_enemies()
-	add_floating_clouds()
 	setup_level_visuals(level_number)
 
 func connect_signals() -> void:
@@ -54,7 +53,7 @@ func update_difficulty(delta: float) -> void:
 	game_difficulty += delta * 0.01
 	enemy_speed = 80.0 + (game_difficulty * 20.0)
 	
-	# Check if we should advance to the next level
+	
 	if shapes_destroyed >= shapes_for_next_level:
 		advance_level()
 
@@ -63,11 +62,11 @@ func advance_level() -> void:
 	shapes_destroyed = 0
 	shapes_for_next_level = 20 + (level_number * 5)
 	
-	# Update game visuals for new level
+	
 	setup_level_visuals(level_number)
 
 func setup_level_visuals(level: int) -> void:
-	# Update background gradient based on level
+	
 	var bg_index = min(level - 1, backgrounds.size() - 1)
 	var background = $Background as TextureRect
 	
@@ -79,20 +78,29 @@ func setup_level_visuals(level: int) -> void:
 				gradient.colors[0] = backgrounds[bg_index]
 				gradient.colors[1] = backgrounds[bg_index].darkened(0.3)
 	
-	# Scale enemy spawn rate with level
+	
 	spawn_timer = max(1.5 - (level * 0.1), 0.5)
 	
-	# Add more floating clouds on levels with sky
-	if level <= 3:
-		add_floating_clouds()
+	
+	
+	
 
 func setup_input_map() -> void:
+	
 	if not InputMap.has_action("fire"):
 		InputMap.add_action("fire")
-		var event := InputEventMouseButton.new()
-		event.button_index = MOUSE_BUTTON_LEFT
-		event.pressed = true
-		InputMap.action_add_event("fire", event)
+		
+		
+		var mouse_event = InputEventMouseButton.new()
+		mouse_event.button_index = MOUSE_BUTTON_LEFT
+		mouse_event.pressed = true
+		InputMap.action_add_event("fire", mouse_event)
+		
+		
+		var key_event = InputEventKey.new()
+		key_event.keycode = KEY_SPACE
+		key_event.pressed = true
+		InputMap.action_add_event("fire", key_event)
 
 func spawn_enemy() -> void:
 	if not shape_scene:
@@ -113,7 +121,7 @@ func configure_enemy(enemy) -> void:
 	enemy.target_position = Vector2(320, 720)
 	enemy.move_speed = enemy_speed
 	
-	# Increase health for harder enemies based on level
+	
 	if level_number > 3 and randf() < 0.2:
 		enemy.health = 2
 		enemy.scale = Vector2(1.2, 1.2)
@@ -125,7 +133,7 @@ func configure_enemy(enemy) -> void:
 func _on_shapes_popped(count: int) -> void:
 	shapes_destroyed += 1
 	
-	# Simplified scoring without combo multiplier
+	
 	var level_multiplier = 1.0 + ((level_number - 1) * 0.2)
 	var points = int(10 * level_multiplier)
 	
@@ -165,7 +173,7 @@ func show_game_over_screen() -> void:
 	add_restart_button(game_over_display)
 	add_child(game_over_display)
 	
-	# Add additional visual effects
+	
 	create_game_over_effects()
 	
 	game_over_display.scale = Vector2(0.5, 0.5)
@@ -185,13 +193,13 @@ func create_game_over_container() -> Node2D:
 	bg.position = Vector2(-200, -150)
 	container.add_child(bg)
 	
-	# Add visual pulsing effect to background
+	
 	var pulse_tween = create_tween()
-	pulse_tween.set_loops()
+	pulse_tween.set_loops(0)  
 	pulse_tween.tween_property(bg, "color", Color(0.3, 0.0, 0.0, 0.8), 1.0)
 	pulse_tween.tween_property(bg, "color", Color(0.2, 0.0, 0.0, 0.8), 1.0)
 	
-	# Add borders to container
+	
 	var border_width = 4
 	var border_color = Color(0.8, 0.1, 0.1, 0.9)
 	
@@ -222,7 +230,7 @@ func create_game_over_container() -> Node2D:
 	return container
 
 func create_game_over_effects() -> void:
-	# Create particles across the screen
+	
 	var particles = CPUParticles2D.new()
 	particles.position = Vector2(320, 360)
 	particles.amount = 40
@@ -240,35 +248,38 @@ func create_game_over_effects() -> void:
 	particles.color = Color(0.7, 0.1, 0.1, 0.7)
 	add_child(particles)
 	
-	# Add flash effect
-	var flash = ColorRect.new()
-	flash.color = Color(1, 0, 0, 0.3)
-	flash.size = Vector2(640, 720)
-	flash.z_index = 50
-	add_child(flash)
 	
-	var flash_tween = create_tween()
-	flash_tween.tween_property(flash, "color:a", 0.0, 0.5)
-	flash_tween.tween_callback(flash.queue_free)
-	
-	# Add screen shake
 	var camera = get_node_or_null("MainCamera")
 	if camera:
+		var shake_amount = 5.0
 		var original_pos = camera.position
-		var shake_tween = create_tween()
-		for i in range(10):
-			var offset = Vector2(randf_range(-10, 10), randf_range(-10, 10))
-			shake_tween.tween_property(camera, "position", original_pos + offset, 0.05)
-		shake_tween.tween_property(camera, "position", original_pos, 0.1)
+		
+		
+		var shake_tween = safe_tween(camera)
+		if shake_tween:
+			shake_tween.tween_property(camera, "position", original_pos + Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_amount, 0.05)
+			shake_tween.tween_property(camera, "position", original_pos, 0.05)
+	
+	
+	var flash = ColorRect.new()
+	flash.color = Color(1, 0.5, 0.3, 0.3)  
+	flash.size = get_viewport().size
+	flash.z_index = 100
+	get_tree().root.add_child(flash)
+	
+	var flash_tween = safe_tween(flash)
+	if flash_tween:
+		flash_tween.tween_property(flash, "color:a", 0, 0.5)
+		flash_tween.tween_callback(flash.queue_free)
 
 func add_game_over_skull(container: Node2D) -> void:
 	var skull := Node2D.new()
 	skull.position = Vector2(0, -50)
 	container.add_child(skull)
 	
-	# Create a more friendly "game over" face with soft edges
 	
-	# Add a warm soft glow behind the face
+	
+	
 	var background_glow = Sprite2D.new()
 	var glow_size = 150
 	var glow_img = Image.create(glow_size, glow_size, false, Image.FORMAT_RGBA8)
@@ -289,7 +300,7 @@ func add_game_over_skull(container: Node2D) -> void:
 	background_glow.z_index = -2
 	skull.add_child(background_glow)
 	
-	# Create a rounded face instead of a skull
+	
 	var face_sprite = Sprite2D.new()
 	var face_size = 120
 	var face_img = Image.create(face_size, face_size, false, Image.FORMAT_RGBA8)
@@ -310,7 +321,7 @@ func add_game_over_skull(container: Node2D) -> void:
 	face_sprite.position = Vector2(0, 0)
 	skull.add_child(face_sprite)
 	
-	# Add sleepy eyes (closed eyes with eyelashes)
+	
 	var left_eye = Node2D.new()
 	left_eye.position = Vector2(-25, -15)
 	skull.add_child(left_eye)
@@ -321,7 +332,7 @@ func add_game_over_skull(container: Node2D) -> void:
 	var eye_img = Image.create(eye_width, eye_height, false, Image.FORMAT_RGBA8)
 	eye_img.fill(Color(0, 0, 0, 0))
 	
-	# Draw a curved line for closed eye
+	
 	for x in range(eye_width):
 		var y_pos = 4 + sin((float(x) / eye_width) * PI) * 3
 		for y in range(eye_height):
@@ -333,7 +344,7 @@ func add_game_over_skull(container: Node2D) -> void:
 	left_eye_line.texture = ImageTexture.create_from_image(eye_img)
 	left_eye.add_child(left_eye_line)
 	
-	# Add eyelashes
+	
 	for i in range(3):
 		var lash = ColorRect.new()
 		lash.color = Color(0.3, 0.2, 0.2, 0.7)
@@ -342,7 +353,7 @@ func add_game_over_skull(container: Node2D) -> void:
 		lash.rotation = -0.5
 		left_eye.add_child(lash)
 	
-	# Right eye (mirrored)
+	
 	var right_eye = Node2D.new()
 	right_eye.position = Vector2(25, -15)
 	skull.add_child(right_eye)
@@ -351,7 +362,7 @@ func add_game_over_skull(container: Node2D) -> void:
 	right_eye_line.texture = ImageTexture.create_from_image(eye_img)
 	right_eye.add_child(right_eye_line)
 	
-	# Add eyelashes for right eye
+	
 	for i in range(3):
 		var lash = ColorRect.new()
 		lash.color = Color(0.3, 0.2, 0.2, 0.7)
@@ -360,14 +371,14 @@ func add_game_over_skull(container: Node2D) -> void:
 		lash.rotation = -0.5
 		right_eye.add_child(lash)
 	
-	# Add a cute mouth (a simple curved line)
+	
 	var mouth = Sprite2D.new()
 	var mouth_width = 40
 	var mouth_height = 20
 	var mouth_img = Image.create(mouth_width, mouth_height, false, Image.FORMAT_RGBA8)
 	mouth_img.fill(Color(0, 0, 0, 0))
 	
-	# Draw curved mouth with small gradient for softness
+	
 	for x in range(mouth_width):
 		var progress = float(x) / mouth_width
 		var y_pos = 10 - sin(progress * PI) * 5
@@ -382,7 +393,7 @@ func add_game_over_skull(container: Node2D) -> void:
 	mouth.position = Vector2(0, 15)
 	skull.add_child(mouth)
 	
-	# Add a drop of sweat for comic effect
+	
 	var sweat = Sprite2D.new()
 	var sweat_size = 10
 	var sweat_img = Image.create(sweat_size, sweat_size, false, Image.FORMAT_RGBA8)
@@ -390,12 +401,12 @@ func add_game_over_skull(container: Node2D) -> void:
 	
 	for x in range(sweat_size):
 		for y in range(sweat_size):
-			# Create a teardrop shape
+			
 			var normalized_x = float(x) / sweat_size
 			var normalized_y = float(y) / sweat_size
 			var in_drop = false
 			
-			# Simple teardrop formula
+			
 			if normalized_y > 0.3:
 				var width = 0.4 * sin(normalized_y * PI)
 				if abs(normalized_x - 0.5) < width:
@@ -411,16 +422,16 @@ func add_game_over_skull(container: Node2D) -> void:
 	sweat.position = Vector2(40, -10)
 	skull.add_child(sweat)
 	
-	# Add sweat drop animation
+	
 	var sweat_tween = create_tween()
-	sweat_tween.set_loops()
+	sweat_tween.set_loops(0)  
 	sweat_tween.tween_property(sweat, "position", Vector2(40, 0), 0.7).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	sweat_tween.tween_property(sweat, "position", Vector2(40, -10), 0.0)
 	sweat_tween.tween_property(sweat, "visible", false, 0.0)
 	sweat_tween.tween_interval(0.8)
 	sweat_tween.tween_property(sweat, "visible", true, 0.0)
 	
-	# Add warm glow around the face
+	
 	var glow = Sprite2D.new()
 	var glow_img2 = Image.create(face_size, face_size, false, Image.FORMAT_RGBA8)
 	glow_img2.fill(Color(0, 0, 0, 0))
@@ -436,19 +447,19 @@ func add_game_over_skull(container: Node2D) -> void:
 	glow.z_index = -1
 	skull.add_child(glow)
 	
-	# Add gentle bounce animation
+	
 	var skull_tween = create_tween()
-	skull_tween.set_loops()
+	skull_tween.set_loops(0)  
 	skull_tween.tween_property(skull, "position", Vector2(0, -45), 1.5).set_trans(Tween.TRANS_SINE)
 	skull_tween.tween_property(skull, "position", Vector2(0, -55), 1.5).set_trans(Tween.TRANS_SINE)
 	
-	# Add glow animation
+	
 	var glow_tween = create_tween()
-	glow_tween.set_loops()
+	glow_tween.set_loops(0)  
 	glow_tween.tween_property(glow, "scale", Vector2(1.15, 1.15), 2.0).set_trans(Tween.TRANS_SINE)
 	glow_tween.tween_property(glow, "scale", Vector2(0.95, 0.95), 2.0).set_trans(Tween.TRANS_SINE)
 	
-	# Add a game over message
+	
 	var game_over_label = Label.new()
 	game_over_label.text = "Game Over"
 	game_over_label.add_theme_font_size_override("font_size", 24)
@@ -461,7 +472,7 @@ func add_restart_button(container: Node2D) -> void:
 	restart_hint.position = Vector2(0, 80)
 	container.add_child(restart_hint)
 	
-	# Create a soft rounded button background
+	
 	var r_key_bg = Sprite2D.new()
 	var key_size = 48
 	var key_img = Image.create(key_size, key_size, false, Image.FORMAT_RGBA8)
@@ -481,7 +492,7 @@ func add_restart_button(container: Node2D) -> void:
 	r_key_bg.texture = ImageTexture.create_from_image(key_img)
 	restart_hint.add_child(r_key_bg)
 	
-	# Add a glow effect behind the button
+	
 	var key_glow = Sprite2D.new()
 	var glow_size = key_size * 1.5
 	var glow_img = Image.create(glow_size, glow_size, false, Image.FORMAT_RGBA8)
@@ -502,10 +513,10 @@ func add_restart_button(container: Node2D) -> void:
 	key_glow.z_index = -1
 	restart_hint.add_child(key_glow)
 	
-	# Add a more rounded and friendly R letter
+	
 	add_r_key_shape(restart_hint)
 	
-	# Add small restart label
+	
 	var restart_label = Label.new()
 	restart_label.text = "Restart"
 	restart_label.add_theme_font_size_override("font_size", 14)
@@ -513,19 +524,19 @@ func add_restart_button(container: Node2D) -> void:
 	restart_label.position = Vector2(-30, 30)
 	restart_hint.add_child(restart_label)
 	
-	# Add pulsing effect to restart button
+	
 	var pulse_tween = create_tween()
-	pulse_tween.set_loops()
+	pulse_tween.set_loops(0)  
 	pulse_tween.tween_property(r_key_bg, "scale", Vector2(1.1, 1.1), 0.8).set_trans(Tween.TRANS_SINE)
 	pulse_tween.tween_property(r_key_bg, "scale", Vector2(0.95, 0.95), 0.8).set_trans(Tween.TRANS_SINE)
 	
-	# Add glow animation
+	
 	var glow_tween = create_tween()
-	glow_tween.set_loops()
+	glow_tween.set_loops(0)  
 	glow_tween.tween_property(key_glow, "scale", Vector2(1.4, 1.4), 1.5).set_trans(Tween.TRANS_SINE)
 	glow_tween.tween_property(key_glow, "scale", Vector2(1.0, 1.0), 1.5).set_trans(Tween.TRANS_SINE)
 	
-	# Add enhanced particles around restart button
+	
 	var particles = CPUParticles2D.new()
 	particles.position = Vector2(0, 0)
 	particles.amount = 20
@@ -543,14 +554,14 @@ func add_restart_button(container: Node2D) -> void:
 	particles.color = Color(1.0, 0.7, 0.7, 0.5)
 	restart_hint.add_child(particles)
 	
-	# Add heart particles occasionally
+	
 	var heart_timer = Timer.new()
 	heart_timer.wait_time = 0.8
 	heart_timer.autostart = true
 	restart_hint.add_child(heart_timer)
 	
 	heart_timer.timeout.connect(func():
-		if randf() > 0.5:  # 50% chance
+		if randf() > 0.5:  
 			add_heart_particle(restart_hint)
 	)
 
@@ -568,7 +579,7 @@ func add_heart_particle(parent: Node2D) -> void:
 			var px = float(x - center_x) / (heart_size / 2)
 			var py = float(y - center_y) / (heart_size / 2)
 			
-			# Heart shape formula
+			
 			var inside_heart = pow(px, 2) + pow(py - 0.5 * sqrt(abs(px)), 2) < 0.6
 			
 			if inside_heart:
@@ -576,7 +587,7 @@ func add_heart_particle(parent: Node2D) -> void:
 	
 	heart.texture = ImageTexture.create_from_image(heart_img)
 	
-	# Random position and movement
+	
 	var angle = randf() * 2 * PI
 	var distance = randf_range(30, 60)
 	heart.position = Vector2(cos(angle) * distance, sin(angle) * distance)
@@ -584,7 +595,7 @@ func add_heart_particle(parent: Node2D) -> void:
 	heart.modulate.a = 0.0
 	parent.add_child(heart)
 	
-	# Create movement animation
+	
 	var tween = create_tween()
 	tween.tween_property(heart, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.parallel().tween_property(heart, "modulate:a", 0.8, 0.3)
@@ -593,13 +604,13 @@ func add_heart_particle(parent: Node2D) -> void:
 	tween.tween_callback(heart.queue_free)
 
 func add_r_key_shape(parent: Node2D) -> void:
-	# Create a more rounded and stylized R letter
+	
 	var r_letter = Node2D.new()
 	r_letter.position = Vector2(0, 0)
-	r_letter.scale = Vector2(0.8, 0.8)  # Slightly smaller
+	r_letter.scale = Vector2(0.8, 0.8)  
 	parent.add_child(r_letter)
 	
-	# Vertical stem
+	
 	var stem = Sprite2D.new()
 	var stem_width = 8
 	var stem_height = 24
@@ -614,7 +625,7 @@ func add_r_key_shape(parent: Node2D) -> void:
 	stem.position = Vector2(-10, 0)
 	r_letter.add_child(stem)
 	
-	# Top curved part
+	
 	var top_curve = Sprite2D.new()
 	var curve_size = 20
 	var curve_img = Image.create(curve_size, curve_size, false, Image.FORMAT_RGBA8)
@@ -629,7 +640,7 @@ func add_r_key_shape(parent: Node2D) -> void:
 			var dist = point.distance_to(curve_center)
 			var angle = atan2(y - curve_center.y, x - curve_center.x)
 			
-			# Draw an arc
+			
 			if dist < curve_radius && dist > curve_radius - 8 && angle > -PI/2 && angle < PI/2:
 				curve_img.set_pixel(x, y, Color(0.3, 0.2, 0.2, 1.0))
 	
@@ -637,7 +648,7 @@ func add_r_key_shape(parent: Node2D) -> void:
 	top_curve.position = Vector2(0, -10)
 	r_letter.add_child(top_curve)
 	
-	# Bottom diagonal
+	
 	var diagonal = Sprite2D.new()
 	var diag_width = 20
 	var diag_height = 20
@@ -679,21 +690,11 @@ func check_enemies_reached_bottom() -> void:
 			_on_game_over()
 			return
 
-func add_floating_clouds():
-	# Get the CloudMovement node if it exists, or create one
-	var cloud_controller
-	if has_node("CloudMovement"):
-		cloud_controller = get_node("CloudMovement")
-	else:
-		cloud_controller = Node2D.new()
-		cloud_controller.name = "CloudMovement"
+func safe_tween(target_node: Node = null) -> Tween:
+	var tween = create_tween()
+	if tween == null:
 		
-		# Load and set the cloud movement script
-		var cloud_script = load("res://scripts/cloud_movement.gd")
-		cloud_controller.set_script(cloud_script)
-		add_child(cloud_controller)
+		if target_node:
+			tween = target_node.create_tween()
 	
-	# Let the cloud_movement script handle cloud creation
-	# The Cloud class is defined in that script
-	for i in range(2):
-		cloud_controller.spawn_cloud(Vector2(randf_range(50, 590), randf_range(50, 600))) 
+	return tween 

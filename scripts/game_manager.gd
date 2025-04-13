@@ -1,4 +1,3 @@
-extends "res://scripts/game_controller.gd"
+extends "res:
 
-# This file exists for backward compatibility
-# It extends game_controller.gd which contains the actual implementation 
+
