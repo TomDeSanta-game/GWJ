@@ -14,6 +14,8 @@ var target_position: Vector2 = Vector2.ZERO
 var move_speed: float = 80.0
 var health: int = 1
 var has_launched: bool = false
+var destroyed: bool = false
+var match_checking: bool = false
 
 var outline: Node2D
 
@@ -52,6 +54,18 @@ func move_towards_target(delta: float):
 
 func set_launched():
 	has_launched = true
+	
+	# Reset physics state to allow movement
+	freeze = false
+	gravity_scale = 0.0
+	linear_damp = -1
+	
+	# Apply impulse for movement if not already moving
+	var min_velocity_threshold = 10.0
+	if linear_velocity.length() < min_velocity_threshold:
+		# Apply impulse in the forward direction based on rotation
+		var forward_direction = Vector2(0, -1).rotated(rotation)
+		apply_central_impulse(forward_direction * 300.0)
 	
 	var trail = get_node_or_null("Trail")
 	if trail:
@@ -124,116 +138,73 @@ func _draw():
 	elif shape_type == ShapeType.SQUARE:
 		draw_square_shape(radius, color, shadow_color, highlight_color)
 		
-func draw_circle_shape(radius: float, color: Color, shadow_color: Color, highlight_color: Color):
-	var shadow_offset = Vector2(radius * 0.05, radius * 0.08)
-	draw_circle(shadow_offset, radius * 1.05, shadow_color)
-	draw_circle(Vector2.ZERO, radius, color)
+func draw_circle_shape(r: float, c: Color, shadow_color: Color, highlight_color: Color):
+	var shadow_offset = Vector2(r * 0.05, r * 0.08)
+	draw_circle(shadow_offset, r * 1.05, shadow_color)
+	draw_circle(Vector2.ZERO, r, c)
 	
-	var highlight_offset = Vector2(-radius * 0.15, -radius * 0.15)
-	var highlight_radius = radius * 0.5
+	var highlight_offset = Vector2(-r * 0.15, -r * 0.15)
+	var highlight_radius = r * 0.5
 	highlight_color.a = 0.2
 	draw_circle(highlight_offset, highlight_radius, highlight_color)
 
-func draw_triangle_shape(radius: float, color: Color, shadow_color: Color, highlight_color: Color):
+func draw_triangle_shape(r: float, c: Color, shadow_color: Color, highlight_color: Color):
 	var points = [
-		Vector2(0, -radius),
-		Vector2(-radius * 0.866, radius * 0.5),
-		Vector2(radius * 0.866, radius * 0.5)
+		Vector2(0, -r),
+		Vector2(-r * 0.866, r * 0.5),
+		Vector2(r * 0.866, r * 0.5)
 	]
 	
-	var shadow_offset = Vector2(radius * 0.05, radius * 0.08)
+	var shadow_offset = Vector2(r * 0.05, r * 0.08)
 	var shadow_points = []
 	for point in points:
 		shadow_points.append(point + shadow_offset)
 	
-	draw_rounded_polygon(Vector2.ZERO, shadow_points, shadow_color, radius * 0.15)
-	draw_rounded_polygon(Vector2.ZERO, points, color, radius * 0.15)
+	draw_polygon(shadow_points, [shadow_color])
+	draw_polygon(points, [c])
 	
 	var highlight_points = []
 	var highlight_scale = 0.6
-	var highlight_offset_dir = Vector2(-radius * 0.08, -radius * 0.08)
+	var highlight_offset_dir = Vector2(-r * 0.08, -r * 0.08)
 	for point in points:
 		highlight_points.append(point * highlight_scale + highlight_offset_dir)
 	
 	highlight_color.a = 0.2
-	draw_rounded_polygon(Vector2.ZERO, highlight_points, highlight_color, radius * 0.1)
+	draw_polygon(highlight_points, [highlight_color])
 
-func draw_rounded_polygon(center: Vector2, points, color, corner_radius):
-	if corner_radius <= 0:
-		draw_polygon(points, [color])
-		return
-		
-	var point_count = points.size()
-	if point_count < 3:
-		return
-		
-	var arc_points = 5
-	var all_points = PackedVector2Array()
-	
-	for i in range(point_count):
-		var prev = points[(i - 1 + point_count) % point_count]
-		var current = points[i]
-		var next = points[(i + 1) % point_count]
-		
-		var to_prev = (prev - current).normalized()
-		var to_next = (next - current).normalized()
-		
-		var angle_prev = to_prev.angle()
-		var angle_next = to_next.angle()
-		
-		while angle_next < angle_prev:
-			angle_next += 2 * PI
-			
-		var angle_diff = angle_next - angle_prev
-		var bisector = (to_prev + to_next).normalized()
-		
-		if bisector.length() < 0.1:
-			bisector = Vector2(to_prev.y, -to_prev.x)
-			
-		var offset = bisector * corner_radius / cos(angle_diff / 2)
-		var corner_center = current + offset
-		
-		var start_angle = (current - corner_center).angle()
-		var end_angle = (next - corner_center).angle()
-		
-		if end_angle < start_angle:
-			end_angle += 2 * PI
-			
-		for j in range(arc_points + 1):
-			var t = float(j) / arc_points
-			var angle = start_angle + t * (end_angle - start_angle)
-			all_points.append(corner_center + Vector2(cos(angle), sin(angle)) * corner_radius)
-	
-	draw_polygon(all_points, [color])
-		
-func draw_square_shape(radius: float, color: Color, shadow_color: Color, highlight_color: Color):
-	var side_length = radius * 1.6
+func draw_square_shape(r: float, c: Color, shadow_color: Color, highlight_color: Color):
+	var side_length = r * 1.6
 	var corner_radius = side_length * 0.2
-	var half_side = side_length / 2
 	
-	var square_points = [
-		Vector2(-half_side, -half_side),
-		Vector2(half_side, -half_side),
-		Vector2(half_side, half_side),
-		Vector2(-half_side, half_side)
-	]
+	# Draw shadow first
+	var shadow_offset = Vector2(r * 0.05, r * 0.08)
+	draw_rounded_rect(shadow_offset, side_length, corner_radius, shadow_color)
 	
-	var shadow_offset = Vector2(radius * 0.05, radius * 0.08)
-	var shadow_points = []
-	for point in square_points:
-		shadow_points.append(point + shadow_offset)
+	# Draw main shape
+	draw_rounded_rect(Vector2.ZERO, side_length, corner_radius, c)
 	
-	draw_rounded_polygon(Vector2.ZERO, shadow_points, shadow_color, corner_radius)
-	draw_rounded_polygon(Vector2.ZERO, square_points, color, corner_radius)
-	
+	# Draw highlight
 	var highlight_scale = 0.7
-	var highlight_offset = Vector2(-radius * 0.05, -radius * 0.05)
-	var highlight_points = []
-	for point in square_points:
-		highlight_points.append(point * highlight_scale + highlight_offset)
-		
+	var highlight_size = side_length * highlight_scale
+	var highlight_corner = highlight_size * 0.2
+	var highlight_offset = Vector2(-r * 0.05, -r * 0.05)
+	
 	highlight_color.a = 0.2
-	draw_rounded_polygon(Vector2.ZERO, highlight_points, highlight_color, corner_radius * highlight_scale)
+	draw_rounded_rect(highlight_offset, highlight_size, highlight_corner, highlight_color)
+
+# Helper function to draw a rounded rectangle
+func draw_rounded_rect(pos: Vector2, size: float, corner_radius: float, color: Color):
+	var half_size = size / 2.0
+	var inner_size = half_size - corner_radius
+	
+	# First fill the entire square with a solid rect to prevent holes
+	draw_rect(Rect2(pos.x - half_size, pos.y - half_size, size, size), color)
+	
+	# Draw the four corners
+	draw_circle(pos + Vector2(-inner_size, -inner_size), corner_radius, color)  # Top-left
+	draw_circle(pos + Vector2(inner_size, -inner_size), corner_radius, color)   # Top-right
+	draw_circle(pos + Vector2(inner_size, inner_size), corner_radius, color)    # Bottom-right
+	draw_circle(pos + Vector2(-inner_size, inner_size), corner_radius, color)   # Bottom-left
 """
 	
 	script.reload()
@@ -377,9 +348,13 @@ func play_hit_effect(hit_position):
 	particles_timer.start()
 
 func play_safe_sound(sound_name: String, pitch_scale: float = 1.0, volume_db: float = -5.0):
-	var dirs_to_try = ["res:
+	var dirs_to_try = ["res://audio/", "res://sounds/"]
 	var extensions = [".wav", ".ogg", ".mp3"]
 	var sound_stream = null
+	
+	# Skip trying to play "launch" sound which doesn't exist
+	if sound_name == "launch":
+		return null
 	
 	for dir in dirs_to_try:
 		for ext in extensions:
@@ -432,10 +407,24 @@ func get_neighbors() -> Array:
 	return []
 
 func destroy():
-	create_destroy_effect()
+	if destroyed:
+		return
+		
+	destroyed = true
 	
-	is_attached_to_grid = false
-	grid_position = Vector2i(-1, -1)
+	match_checking = false
+	
+	if is_in_group("shapes"):
+		remove_from_group("shapes")
+	
+	freeze = true
+	
+	if has_node("ShapeVisual"):
+		var visual = get_node("ShapeVisual")
+		var tween = create_tween()
+		tween.tween_property(visual, "modulate:a", 0.0, 0.3)
+	
+	await get_tree().create_timer(0.3).timeout
 	
 	queue_free()
 
@@ -443,71 +432,85 @@ func create_destroy_effect():
 	var global_pos = global_position
 	var effect_color = get_color_from_enum(shape_type)
 	
+	# Create a parent node to manage all effect elements
+	var effect_root = Node2D.new()
+	effect_root.name = "DestroyEffectRoot"
+	effect_root.position = global_pos
+	get_tree().root.add_child(effect_root)
+	
+	# Flash effect
 	var flash = ColorRect.new()
-	get_tree().root.add_child(flash)
+	effect_root.add_child(flash)
 	flash.size = Vector2(radius * 6, radius * 6)
-	flash.position = global_pos - Vector2(radius * 3, radius * 3)
-	flash.color = Color(0.9, 0.85, 0.8, 0.5)
+	flash.position = Vector2(-radius * 3, -radius * 3)
+	flash.color = Color(1.0, 1.0, 1.0, 0.7)
 	
 	var flash_tween = create_tween()
-	flash_tween.tween_property(flash, "color:a", 0.0, 0.4)
-	flash_tween.tween_callback(flash.queue_free)
+	flash_tween.tween_property(flash, "color", effect_color.lightened(0.4), 0.1)
+	flash_tween.tween_property(flash, "color:a", 0.0, 0.3)
 	
+	# Main explosion particles
 	var particles = CPUParticles2D.new()
-	get_tree().root.add_child(particles)
-	particles.position = global_pos
-	particles.amount = 40
-	particles.lifetime = 1.0
+	effect_root.add_child(particles)
+	particles.z_index = 1
+	particles.amount = 45
+	particles.lifetime = 0.7
 	particles.explosiveness = 1.0
 	particles.one_shot = true
 	particles.emitting = true
 	particles.spread = 180
-	particles.gravity = Vector2(0, 60)
-	particles.initial_velocity_min = 60
-	particles.initial_velocity_max = 120
-	particles.scale_amount_min = 2.5
-	particles.scale_amount_max = 5.0
-	particles.color = effect_color.lightened(0.15)
+	particles.gravity = Vector2(0, 70)
+	particles.initial_velocity_min = 80
+	particles.initial_velocity_max = 160
+	particles.scale_amount_min = 3.0
+	particles.scale_amount_max = 6.0
+	particles.color = effect_color.lightened(0.2)
+	particles.color_ramp = create_fade_out_gradient()
 	
+	# Sparkle particles
 	var sparkles = CPUParticles2D.new()
-	get_tree().root.add_child(sparkles)
-	sparkles.position = global_pos
-	sparkles.amount = 15
-	sparkles.lifetime = 1.0
+	effect_root.add_child(sparkles)
+	sparkles.z_index = 2
+	sparkles.amount = 20
+	sparkles.lifetime = 0.6
 	sparkles.explosiveness = 1.0
 	sparkles.one_shot = true
 	sparkles.emitting = true
 	sparkles.spread = 180
-	sparkles.gravity = Vector2(0, 25)
-	sparkles.initial_velocity_min = 80
-	sparkles.initial_velocity_max = 150
+	sparkles.gravity = Vector2(0, 30)
+	sparkles.initial_velocity_min = 100
+	sparkles.initial_velocity_max = 180
 	sparkles.scale_amount_min = 1.5
 	sparkles.scale_amount_max = 3.0
-	sparkles.color = Color(0.85, 0.8, 0.7, 0.6)
+	sparkles.color = effect_color.lightened(0.5)
+	sparkles.color_ramp = create_fade_out_gradient()
 	
+	# Heart particles
 	var heart_particles = CPUParticles2D.new()
-	get_tree().root.add_child(heart_particles)
-	heart_particles.position = global_pos
-	heart_particles.amount = 5
-	heart_particles.lifetime = 1.2
+	effect_root.add_child(heart_particles)
+	heart_particles.z_index = 3
+	heart_particles.amount = 4
+	heart_particles.lifetime = 0.8
 	heart_particles.explosiveness = 0.9
 	heart_particles.one_shot = true
 	heart_particles.emitting = true
 	heart_particles.spread = 180
-	heart_particles.gravity = Vector2(0, 20)
-	heart_particles.initial_velocity_min = 35
-	heart_particles.initial_velocity_max = 70
+	heart_particles.gravity = Vector2(0, 25)
+	heart_particles.initial_velocity_min = 40
+	heart_particles.initial_velocity_max = 80
 	heart_particles.scale_amount_min = 3.0
-	heart_particles.scale_amount_max = 6.0
-	heart_particles.color = Color(0.8, 0.4, 0.5, 0.6)
+	heart_particles.scale_amount_max = 4.5
+	heart_particles.color = Color(0.9, 0.5, 0.6, 0.8)
+	heart_particles.color_ramp = create_fade_out_gradient()
 	
 	var heart_texture = create_heart_texture()
 	if heart_texture != null:
 		heart_particles.texture = heart_texture
 	
+	# Ring effect
 	var ring = Sprite2D.new()
-	get_tree().root.add_child(ring)
-	ring.position = global_pos
+	effect_root.add_child(ring)
+	ring.z_index = -1
 	
 	var ring_img = Image.create(128, 128, false, Image.FORMAT_RGBA8)
 	ring_img.fill(Color(0, 0, 0, 0))
@@ -529,49 +532,50 @@ func create_destroy_effect():
 	ring.scale = Vector2(0.5, 0.5)
 	
 	var ring_tween = create_tween()
-	ring_tween.tween_property(ring, "scale", Vector2(3.0, 3.0), 0.7).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.7)
-	ring_tween.tween_callback(ring.queue_free)
+	ring_tween.tween_property(ring, "scale", Vector2(3.0, 3.0), 0.6).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.6)
 	
-	var star_burst = Sprite2D.new()
-	get_tree().root.add_child(star_burst)
-	star_burst.position = global_pos
+	# Burst circle
+	var burst_circle = Sprite2D.new()
+	effect_root.add_child(burst_circle)
+	burst_circle.z_index = 2
 	
-	var star_img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	star_img.fill(Color(0, 0, 0, 0))
+	var burst_img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	burst_img.fill(Color(0, 0, 0, 0))
 	
-	var star_center = Vector2(32, 32)
-	var ray_count = 8
+	var burst_center = Vector2(32, 32)
+	var burst_radius = 25
 	
-	for ray in range(ray_count):
-		var angle = ray * 2 * PI / ray_count
-		var direction = Vector2(cos(angle), sin(angle))
-		var ray_length = 25.0
-		
-		for step in range(int(ray_length)):
-			var pos = star_center + direction * step
-			if pos.x >= 0 and pos.x < 64 and pos.y >= 0 and pos.y < 64:
-				var alpha = 1.0 - step / ray_length
-				star_img.set_pixel(int(pos.x), int(pos.y), Color(0.9, 0.85, 0.65, alpha * 0.4))
+	for x in range(64):
+		for y in range(64):
+			var dist = Vector2(x, y).distance_to(burst_center)
+			if dist < burst_radius:
+				var alpha = 1.0 - (dist / burst_radius)
+				var color = Color(1, 1, 1, alpha * 0.9)
+				burst_img.set_pixel(x, y, color)
 	
-	star_burst.texture = ImageTexture.create_from_image(star_img)
-	star_burst.scale = Vector2(0.1, 0.1)
+	burst_circle.texture = ImageTexture.create_from_image(burst_img)
+	burst_circle.modulate = effect_color.lightened(0.4)
+	burst_circle.scale = Vector2(0.1, 0.1)
 	
-	var star_tween = create_tween()
-	star_tween.tween_property(star_burst, "scale", Vector2(2.0, 2.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	star_tween.parallel().tween_property(star_burst, "modulate:a", 0.0, 0.5).set_delay(0.2)
-	star_tween.tween_callback(star_burst.queue_free)
+	var burst_tween = create_tween()
+	burst_tween.tween_property(burst_circle, "scale", Vector2(1.5, 1.5), 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	burst_tween.parallel().tween_property(burst_circle, "modulate:a", 0.0, 0.3)
 	
-	var timer = Timer.new()
-	particles.add_child(timer)
-	timer.wait_time = 1.5
-	timer.one_shot = true
-	timer.timeout.connect(func(): 
-		particles.queue_free()
-		sparkles.queue_free()
-		heart_particles.queue_free()
-	)
-	timer.start()
+	# Master cleanup timer for the entire effect
+	var cleanup_timer = Timer.new()
+	effect_root.add_child(cleanup_timer)
+	cleanup_timer.wait_time = 1.2  # Slightly longer to ensure all effects complete
+	cleanup_timer.one_shot = true
+	cleanup_timer.timeout.connect(func(): effect_root.queue_free())
+	cleanup_timer.start()
+
+# Helper function to create a gradient for fading out particles
+func create_fade_out_gradient() -> Gradient:
+	var gradient = Gradient.new()
+	gradient.colors = [Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+	gradient.offsets = [0.7, 1.0]
+	return gradient
 
 func create_heart_texture() -> Texture2D:
 	var img = Image.create(32, 32, false, Image.FORMAT_RGBA8)
@@ -595,9 +599,9 @@ func create_heart_texture() -> Texture2D:
 	return ImageTexture.create_from_image(img)
 
 func preload_sounds():
-	var sounds_dir = "res:
-	var sounds_dir2 = "res:
-	var sounds_dir3 = "res:
+	var _sounds_dir = "res://audio/effects/"
+	var _sounds_dir2 = "res://audio/impacts/"
+	var _sounds_dir3 = "res://sounds/"
 
 func _draw():
 	if not has_node("ShapeVisual"):

@@ -1,3 +1,3 @@
-extends "res:
+extends Node
 
 

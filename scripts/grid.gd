@@ -32,7 +32,7 @@ var grid_layer_offset = Vector2(0, 0)
 var cell_highlights = []
 var cell_pulse_nodes = []
 var match_checking_active = false
-var grid_lines_color = Color(0.9, 0.8, 0.7, 0.2)  
+var grid_lines_color = Color(0.7, 0.5, 0.3, 0.2)  
 var time_since_last_pulse = 0.0
 var pulse_interval = 2.0  
 var grid_sparkle_positions = []
@@ -63,138 +63,77 @@ func _process(delta):
 	update_sparkles(delta)
 
 func create_grid_pulse():
-	
-	var pulse = ColorRect.new()
-	pulse.color = Color(0.7, 0.9, 1.0, 0.0)
-	pulse.size = Vector2(cell_size - 10, cell_size - 10)
-	pulse.position = Vector2(-cell_size, -cell_size) 
+	var pulse = create_rounded_rect(Vector2.ZERO, cell_size - 10, cell_size - 10, 20, Color(0.85, 0.7, 0.5, 0.0))
 	pulse.z_index = 2
 	add_child(pulse)
 	
-	
 	var start_x = randi() % grid_width
-	var start_pos = Vector2(start_x * cell_size + 5, -cell_size)
-	
+	var start_pos = Vector2(start_x * cell_size + cell_size/2.0, -cell_size/2.0)
 	
 	var end_x = randi() % grid_width
-	var end_pos = Vector2(end_x * cell_size + 5, grid_height * cell_size + cell_size)
-	
+	var end_pos = Vector2(end_x * cell_size + cell_size/2.0, grid_height * cell_size + cell_size/2.0)
 	
 	var tween = safe_tween(pulse)
 	if tween:
 		tween.tween_property(pulse, "position", start_pos, 0.1)
-		tween.tween_property(pulse, "color", Color(0.7, 0.9, 1.0, 0.5), 0.2)
+		tween.tween_property(pulse, "modulate", Color(0.85, 0.7, 0.5, 0.5), 0.2)
 		tween.tween_property(pulse, "position", end_pos, 1.5).set_trans(Tween.TRANS_SINE)
-		tween.parallel().tween_property(pulse, "color", Color(0.7, 0.9, 1.0, 0.0), 1.5)
+		tween.parallel().tween_property(pulse, "modulate:a", 0.0, 1.5)
 		tween.tween_callback(pulse.queue_free)
 
 func enhance_grid_lines():
-	
 	var horizontal_lines = get_node("GridLines/HorizontalLines")
 	var vertical_lines = get_node("GridLines/VerticalLines")
 	
 	if horizontal_lines and vertical_lines:
-		
 		for line in horizontal_lines.get_children():
 			if line is Line2D:
 				line.default_color = grid_lines_color
 				line.width = 2.0
-		
+				line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+				line.end_cap_mode = Line2D.LINE_CAP_ROUND
 		
 		for line in vertical_lines.get_children():
 			if line is Line2D:
 				line.default_color = grid_lines_color
 				line.width = 2.0
-	
+				line.begin_cap_mode = Line2D.LINE_CAP_ROUND
+				line.end_cap_mode = Line2D.LINE_CAP_ROUND
 	
 	for x in range(grid_width + 1):
 		for y in range(grid_height + 1):
-			var glow = Sprite2D.new()
-			
-			
-			var img = Image.create(12, 12, false, Image.FORMAT_RGBA8)
-			img.fill(Color(0, 0, 0, 0))
-			
-			var center = Vector2(6, 6)
-			var radius = 4
-			for px in range(12):
-				for py in range(12):
-					var dist = Vector2(px, py).distance_to(center)
-					if dist <= radius:
-						var alpha = 1.0 - (dist / radius) * 0.7
-						img.set_pixel(px, py, Color(1.0, 0.9, 0.7, alpha * 0.3))
-			
-			glow.texture = ImageTexture.create_from_image(img)
-			glow.position = Vector2(x * cell_size, y * cell_size)
+			var glow = create_rounded_rect(Vector2(x * cell_size, y * cell_size), 12, 12, 6, Color(0.85, 0.7, 0.5, 0.3))
 			glow.z_index = 0
 			add_child(glow)
 			cell_pulse_nodes.append(glow)
 
 func add_grid_particles():
-	
 	var particles = CPUParticles2D.new()
-	particles.position = Vector2(grid_width * cell_size / 2, grid_height * cell_size / 2)
+	particles.position = Vector2(grid_width * cell_size / 2.0, grid_height * cell_size / 2.0)
 	particles.amount = 40
 	particles.lifetime = 5.0
 	particles.preprocess = 5.0
-	particles.emission_shape = 2  
-	particles.emission_rect_extents = Vector2(grid_width * cell_size / 2, grid_height * cell_size / 2)
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	particles.emission_rect_extents = Vector2(grid_width * cell_size / 2.0, grid_height * cell_size / 2.0)
 	particles.gravity = Vector2(0, -10)
 	particles.initial_velocity_min = 5
 	particles.initial_velocity_max = 15
 	particles.scale_amount_min = 1.0
 	particles.scale_amount_max = 3.0
-	particles.color = Color(1.0, 0.9, 0.7, 0.15)
+	particles.color = Color(0.9, 0.75, 0.6, 0.15)
 	add_child(particles)
 
 func create_grid_highlights():
-	
 	for x in range(grid_width):
 		for y in range(grid_height):
-			var highlight = Sprite2D.new()
-			
-			
-			var img = Image.create(cell_size - 4, cell_size - 4, false, Image.FORMAT_RGBA8)
-			img.fill(Color(0, 0, 0, 0))
-			
-			var corner_radius = 18  
-			var width = cell_size - 4
-			var height = cell_size - 4
-			
-			for px in range(width):
-				for py in range(height):
-					var in_corner = false
-					var corner_dist = 0.0
-					
-					
-					if px < corner_radius && py < corner_radius:
-						
-						corner_dist = Vector2(px, py).distance_to(Vector2(corner_radius, corner_radius))
-						in_corner = true
-					elif px >= width - corner_radius && py < corner_radius:
-						
-						corner_dist = Vector2(px, py).distance_to(Vector2(width - corner_radius, corner_radius))
-						in_corner = true
-					elif px < corner_radius && py >= height - corner_radius:
-						
-						corner_dist = Vector2(px, py).distance_to(Vector2(corner_radius, height - corner_radius))
-						in_corner = true
-					elif px >= width - corner_radius && py >= height - corner_radius:
-						
-						corner_dist = Vector2(px, py).distance_to(Vector2(width - corner_radius, height - corner_radius))
-						in_corner = true
-					
-					if in_corner:
-						if corner_dist <= corner_radius:
-							
-							var alpha = 1.0 - (corner_dist / corner_radius) * 0.7
-							img.set_pixel(px, py, Color(1.0, 0.95, 0.9, alpha * 0.17))
-					else:
-						
-						img.set_pixel(px, py, Color(1.0, 0.95, 0.9, 0.17))
-			
-			highlight.texture = ImageTexture.create_from_image(img)
-			highlight.position = Vector2(x * cell_size + cell_size/2, y * cell_size + cell_size/2)
+			# Create a cell with rounded corners
+			var highlight = create_rounded_rect(
+				Vector2(x * cell_size + cell_size/2.0, y * cell_size + cell_size/2.0),
+				cell_size - 4, 
+				cell_size - 4, 
+				18, 
+				Color(0.85, 0.7, 0.55, 0.17)
+			)
 			highlight.z_index = -1
 			add_child(highlight)
 			cell_highlights.append(highlight)
@@ -205,11 +144,10 @@ func update_grid_visuals(delta):
 	grid_layer_offset.x = cos(Time.get_ticks_msec() * 0.0005) * 0.5
 	position = grid_layer_offset
 	
-	
 	var time = Time.get_ticks_msec() * 0.001
 	for i in range(cell_highlights.size()):
 		var x = i % grid_width
-		var y = i / grid_width
+		var y = float(i) / float(grid_width)
 		var phase = (x + y) * 0.5 + time
 		var alpha = (sin(phase) + 1) * 0.1
 		cell_highlights[i].modulate.a = alpha
@@ -326,77 +264,24 @@ func create_ripple_effect(position):
 		tween.tween_callback(ripple.queue_free)
 
 func highlight_cell(grid_pos):
+	if not is_position_valid(grid_pos):
+		return
 	
-	var highlight = Node2D.new()
-	highlight.position = Vector2(grid_pos.x * cell_size + cell_size/2, grid_pos.y * cell_size + cell_size/2)
-	highlight.z_index = 1
+	var world_pos = grid_to_world(grid_pos)
+	var highlight = create_rounded_rect(
+		world_pos + Vector2(cell_size / 2.0, cell_size / 2.0),
+		90, 
+		90, 
+		20, 
+		Color(0.9, 0.8, 0.7, 0.3)
+	)
+	highlight.z_index = 5
 	add_child(highlight)
 	
-	
-	var size = cell_size - 10
-	var img = Image.create(size, size, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0, 0, 0, 0))
-	
-	var corner_radius = 20
-	
-	for x in range(size):
-		for y in range(size):
-			var in_corner = false
-			var corner_dist = 0.0
-			
-			
-			if x < corner_radius && y < corner_radius:
-				corner_dist = Vector2(x, y).distance_to(Vector2(corner_radius, corner_radius))
-				in_corner = true
-			elif x >= size - corner_radius && y < corner_radius:
-				corner_dist = Vector2(x, y).distance_to(Vector2(size - corner_radius, corner_radius))
-				in_corner = true
-			elif x < corner_radius && y >= size - corner_radius:
-				corner_dist = Vector2(x, y).distance_to(Vector2(corner_radius, size - corner_radius))
-				in_corner = true
-			elif x >= size - corner_radius && y >= size - corner_radius:
-				corner_dist = Vector2(x, y).distance_to(Vector2(size - corner_radius, size - corner_radius))
-				in_corner = true
-			
-			if in_corner:
-				if corner_dist <= corner_radius:
-					var alpha = 1.0 - (corner_dist / corner_radius) * 0.5
-					img.set_pixel(x, y, Color(1.0, 0.95, 0.85, alpha * 0.7))
-			else:
-				img.set_pixel(x, y, Color(1.0, 0.95, 0.85, 0.7))
-	
-	var sprite = Sprite2D.new()
-	sprite.texture = ImageTexture.create_from_image(img)
-	sprite.position = Vector2(0, 0)
-	highlight.add_child(sprite)
-	
-	
-	var tween = safe_tween(sprite)
+	var tween = safe_tween(highlight)
 	if tween:
-		tween.set_parallel(true)
-		tween.tween_property(sprite, "scale", Vector2(1.1, 1.1), 0.2).set_trans(Tween.TRANS_SINE)
-		tween.tween_property(sprite, "modulate", Color(1.0, 0.95, 0.85, 0.9), 0.2)
-		tween.chain().set_parallel(false)
-		tween.tween_property(sprite, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_SINE)
-		tween.parallel().tween_property(sprite, "modulate", Color(0.7, 0.9, 1.0, 0), 0.6)
+		tween.tween_property(highlight, "modulate:a", 0.0, 0.5)
 		tween.tween_callback(highlight.queue_free)
-	
-	
-	var particles = CPUParticles2D.new()
-	particles.amount = 15
-	particles.lifetime = 0.6
-	particles.explosiveness = 0.7
-	particles.emission_shape = 0  
-	particles.emission_sphere_radius = size / 4
-	particles.direction = Vector2(0, -1)
-	particles.spread = 180
-	particles.gravity = Vector2(0, 5)
-	particles.initial_velocity_min = 10
-	particles.initial_velocity_max = 30
-	particles.scale_amount_min = 2
-	particles.scale_amount_max = 4
-	particles.color = Color(1.0, 0.95, 0.85, 0.5)
-	highlight.add_child(particles)
 
 func check_matches(start_pos):
 	match_checking_active = true
@@ -491,7 +376,7 @@ func remove_matches(positions):
 
 func create_match_effect(position, color_enum):
 	
-	var shape_ref = load("res:
+	var shape_ref = load("res://scripts/shape.gd").new()
 	shape_ref.color = color_enum
 	var color = shape_ref.get_color_from_enum()
 	shape_ref.queue_free()
@@ -660,8 +545,8 @@ func highlight_near_match(grid_pos):
 	var particles = CPUParticles2D.new()
 	particles.amount = 10
 	particles.lifetime = 1.0
-	particles.emission_shape = 0  
-	particles.emission_sphere_radius = size / 6
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = float(size) / 6.0
 	particles.local_coords = false
 	particles.direction = Vector2(0, -1)
 	particles.spread = 90
@@ -719,15 +604,15 @@ func add_ambient_effects():
 	add_child(particles)
 	particles.amount = 15
 	particles.lifetime = 8.0
-	particles.emission_shape = 2  
-	particles.emission_rect_extents = Vector2(grid_width * cell_size / 2, 5)
-	particles.position = Vector2(grid_width * cell_size / 2, grid_height * cell_size + 10)
-	particles.gravity = Vector2(0, -10)  
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+	particles.emission_rect_extents = Vector2(grid_width * cell_size / 2.0, 5)
+	particles.position = Vector2(grid_width * cell_size / 2.0, grid_height * cell_size + 10)
+	particles.gravity = Vector2(0, -10)
 	particles.initial_velocity_min = 10
 	particles.initial_velocity_max = 20
 	particles.scale_amount_min = 2.0
 	particles.scale_amount_max = 4.0
-	particles.color = Color(0.9, 0.95, 1.0, 0.15)  
+	particles.color = Color(0.9, 0.95, 1.0, 0.15)
 
 	
 	var grid_pulse = safe_tween(self)
@@ -1013,9 +898,8 @@ func get_grid_position_from_world(world_pos: Vector2) -> Vector2i:
 	return Vector2i(x, y)
 
 func get_world_position_from_grid(grid_pos: Vector2i) -> Vector2:
-	
-	var x = grid_pos.x * cell_size + cell_size / 2
-	var y = grid_pos.y * cell_size + cell_size / 2
+	var x = grid_pos.x * cell_size + cell_size / 2.0
+	var y = grid_pos.y * cell_size + cell_size / 2.0
 	return Vector2(x, y)
 
 
@@ -1028,7 +912,7 @@ func create_shape_placement_pulse(grid_pos: Vector2i, shape_color = null):
 	var pulse_color = Color(1.0, 0.9, 0.7, 0.4)  
 	if shape_color != null:
 		
-		var color_obj = load("res:
+		var color_obj = load("res://scripts/shape.gd").new()
 		color_obj.color = shape_color
 		pulse_color = color_obj.get_color_from_enum(shape_color).lightened(0.3)
 		pulse_color.a = 0.4
@@ -1038,7 +922,7 @@ func create_shape_placement_pulse(grid_pos: Vector2i, shape_color = null):
 	var world_pos = get_world_position_from_grid(grid_pos)
 	var pulse_size = cell_size * 0.9
 	pulse.size = Vector2(pulse_size, pulse_size)
-	pulse.position = world_pos - Vector2(pulse_size / 2, pulse_size / 2)
+	pulse.position = world_pos - Vector2(pulse_size / 2.0, pulse_size / 2.0)
 	pulse.color = pulse_color
 	
 	
@@ -1055,6 +939,56 @@ func create_shape_placement_pulse(grid_pos: Vector2i, shape_color = null):
 	
 	var tween = create_tween()
 	tween.tween_property(pulse, "size", Vector2(pulse_size * 1.3, pulse_size * 1.3), 0.3).set_trans(Tween.TRANS_SINE)
-	tween.parallel().tween_property(pulse, "position", world_pos - Vector2(pulse_size * 1.3 / 2, pulse_size * 1.3 / 2), 0.3)
+	tween.parallel().tween_property(pulse, "position", world_pos - Vector2(pulse_size * 1.3 / 2.0, pulse_size * 1.3 / 2.0), 0.3)
 	tween.parallel().tween_property(pulse, "color:a", 0.0, 0.5)
 	tween.tween_callback(pulse.queue_free)
+
+func is_position_valid(pos):
+	return pos.x >= 0 and pos.x < grid_width and pos.y >= 0 and pos.y < grid_height
+
+func grid_to_world(grid_pos):
+	return Vector2(grid_pos.x * cell_size, grid_pos.y * cell_size)
+
+# Helper function to create a rounded rectangle
+func create_rounded_rect(pos: Vector2, width: float, height: float, corner_radius: float, color: Color) -> Node2D:
+	var container = Node2D.new()
+	container.position = pos
+	
+	var rect = Sprite2D.new()
+	
+	var img_width = int(width) + 4
+	var img_height = int(height) + 4
+	var img = Image.create(img_width, img_height, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var center = Vector2(img_width / 2.0, img_height / 2.0)
+	
+	for x in range(img_width):
+		for y in range(img_height):
+			var point = Vector2(x, y)
+			var local_x = x - img_width / 2.0
+			var local_y = y - img_height / 2.0
+			
+			# Check if point is within the rounded rectangle
+			var in_rect = false
+			
+			# Center rectangle region (excluding corners)
+			if abs(local_x) <= (width / 2.0 - corner_radius) or abs(local_y) <= (height / 2.0 - corner_radius):
+				if abs(local_x) <= width / 2.0 and abs(local_y) <= height / 2.0:
+					in_rect = true
+			# Corner regions - use distance to corner center
+			else:
+				var corner_center_x = -width / 2.0 + corner_radius if local_x < 0 else width / 2.0 - corner_radius
+				var corner_center_y = -height / 2.0 + corner_radius if local_y < 0 else height / 2.0 - corner_radius
+				var dist = Vector2(local_x - corner_center_x, local_y - corner_center_y).length()
+				
+				if dist <= corner_radius:
+					in_rect = true
+			
+			if in_rect:
+				img.set_pixel(x, y, color)
+	
+	rect.texture = ImageTexture.create_from_image(img)
+	container.add_child(rect)
+	
+	return container

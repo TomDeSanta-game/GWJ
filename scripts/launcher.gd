@@ -13,17 +13,20 @@ var trajectory_points = []
 var max_trajectory_points = 8  
 var crosshair_rotation = 0.0  
 
-
 var launcher_direction: Marker2D
 var launcher_core: Node2D
 var launcher_inner: Node2D
 
-
 var trajectory_marker: Node2D
 const MAX_DOTS = 10
 
+var target_node: Node2D = null
+var target_particles: CPUParticles2D = null
+var game_over: bool = false
+
 func _ready():  
 	ensure_launcher_parts()
+	create_launcher_visuals()
 	create_enhanced_crosshair()
 	create_ambient_glow()
 	create_trajectory_dots()
@@ -31,99 +34,110 @@ func _ready():
 	spawn_current_shape()
 	spawn_next_shape()
 
-
 func ensure_launcher_parts():
-	
 	if not has_node("LauncherDirection"):
 		var launcher_dir = Line2D.new()
 		launcher_dir.name = "LauncherDirection"
 		launcher_dir.width = 2.0
-		launcher_dir.default_color = Color(1.0, 0.8, 0.5, 0.3)  
+		launcher_dir.default_color = Color(1.0, 0.8, 0.5, 0.3)
 		launcher_dir.points = [Vector2.ZERO, Vector2(0, -50)]
 		launcher_dir.z_index = 1
 		add_child(launcher_dir)
 	
-	
 	if not has_node("LauncherCore"):
 		create_launcher_components()
-	
-	
-	if not has_node("LauncherInner"):
-		
-		pass
 
 func _process(delta):  
-	
 	if not can_launch:
 		cooldown_timer -= delta
 		if cooldown_timer <= 0:
 			can_launch = true
 			cooldown_timer = 0.0
-			
 		
 		update_cooldown_visual()
 	
-	
 	var mouse_pos = get_global_mouse_position()
+	aim_direction = (mouse_pos - global_position).normalized()
 	
+	if has_node("LauncherDirection"):
+		$LauncherDirection.rotation = aim_direction.angle() + PI/2
 	
 	var crosshair = get_node_or_null("Crosshair")
 	if crosshair:
-		
-		crosshair.global_position = crosshair.global_position.lerp(mouse_pos, 0.2)
-		
+		crosshair.global_position = mouse_pos
 		
 		crosshair_rotation += delta * 0.5
 		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else crosshair.get_child(0) if crosshair.get_child_count() > 0 else null
 		if inner_crosshair:
 			inner_crosshair.rotation = crosshair_rotation
 	
-	
-	if crosshair:
-		aim_direction = (crosshair.global_position - global_position).normalized()
-		
-		
-		if has_node("LauncherDirection"):
-			$LauncherDirection.rotation = aim_direction.angle()
-	
+	var reticle = get_node_or_null("LauncherReticle")
+	if reticle:
+		reticle.rotation = aim_direction.angle() + PI/2
 	
 	update_trajectory()
 	
-	
-	if Input.is_action_just_pressed("fire"):
-		if can_launch and current_shape != null:
-			launch_shape()
-
+	if Input.is_action_just_pressed("fire") and can_launch and current_shape != null:
+		launch_shape()
 
 func _input(event):
-	
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			if can_launch and current_shape != null:
 				launch_shape()
 
 func launch_shape():
-	
+	if not can_launch or not current_shape:
+		return
+		
 	add_launch_effect()
-		
+	create_launch_flash()
 	
-	current_shape.apply_central_impulse(aim_direction * launch_speed)
-	current_shape.set_launched()
+	if current_shape is RigidBody2D:
+		remove_child(current_shape)
+		get_parent().add_child(current_shape)
+		current_shape.global_position = global_position
 		
-	
+		current_shape.freeze = false
+		current_shape.gravity_scale = 0.0
+		current_shape.linear_damp = -1
+		
+		current_shape.apply_central_impulse(aim_direction * launch_speed)
+		if current_shape.has_method("set_launched"):
+			current_shape.set_launched()
+		else:
+			current_shape.launched = true
+			
+		# Add a spin to make it more dynamic
+		current_shape.apply_torque_impulse(randf_range(-5000, 5000))
+	else:
+		print("Warning: current_shape is not a RigidBody2D")
+		
 	can_launch = false
 	cooldown_timer = cooldown_time
 		
-	
 	play_launch_sound()
-		
 	
-	var launched_shape = current_shape
+	var old_shape = current_shape
 	current_shape = null
-		
 	
-	spawn_current_shape()
-	spawn_next_shape()
+	# Use a timer to delay spawning the new shape
+	var spawn_timer = Timer.new()
+	spawn_timer.wait_time = 0.1
+	spawn_timer.one_shot = true
+	add_child(spawn_timer)
+	spawn_timer.timeout.connect(func():
+		spawn_current_shape()
+		
+		if next_shape:
+			next_shape.queue_free()
+		spawn_next_shape()
+		
+		spawn_timer.queue_free()
+	)
+	spawn_timer.start()
+	
+	SignalBus.emit_signal("shape_launched", old_shape)
 
 func update_trajectory():
 	var start_pos = global_position
@@ -131,273 +145,164 @@ func update_trajectory():
 	var gravity = Vector2(0, 980)  
 	var time_step = 0.15  
 	
-	for i in range(max_trajectory_points):
+	if not trajectory_marker:
+		create_trajectory_dots()
+	
+	var max_dots = min(max_trajectory_points, trajectory_points.size())
+	for i in range(max_dots):
 		var time = time_step * i
 		var pos = start_pos + vel * time + 0.5 * gravity * time * time
 		
-		
 		if i < trajectory_points.size() and trajectory_points[i] != null:
 			trajectory_points[i].global_position = pos
-			
+			trajectory_points[i].visible = can_launch
 			
 			var inner_point = trajectory_points[i].get_child(0) if trajectory_points[i].get_child_count() > 0 else null
 			if inner_point:
 				var scale_pulse = 1.0 + sin(Time.get_ticks_msec() * 0.005 + i * 0.3) * 0.2
 				inner_point.scale = Vector2(scale_pulse, scale_pulse)
 				
-				
 				var fade = i / float(max_trajectory_points)
 				var alpha = 0.8 - (i * 0.1)
-				
 				
 				if inner_point.get_child_count() > 0 and inner_point.get_child(0) != null:
 					inner_point.get_child(0).modulate = Color(1.0, 0.9 - fade * 0.2, 0.7 - fade * 0.3, alpha)
 
 func spawn_current_shape():
-	if current_shape:
-		current_shape.queue_free()
+	var shape = shape_scene.instantiate()
+	shape.shape_type = randi() % 5
 	
-	current_shape = shape_scene.instantiate()
-	current_shape.position = Vector2.ZERO
+	while next_shape and next_shape.shape_type == shape.shape_type:
+		shape.shape_type = randi() % 5 
+		
+	shape.global_position = global_position
+	shape.freeze = true
+	
+	current_shape = shape
 	add_child(current_shape)
-	
-	
-	current_shape.scale = Vector2(0.1, 0.1)
-	var tween = safe_tween(current_shape)
-	if tween:  
-		tween.tween_property(current_shape, "scale", Vector2(1, 1), 0.3).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	
-	
-	var glow = CPUParticles2D.new()
-	glow.amount = 15
-	glow.lifetime = 1.0
-	glow.local_coords = true
-	glow.emission_shape = 0  
-	glow.emission_sphere_radius = 30
-	glow.spread = 180
-	glow.gravity = Vector2.ZERO
-	glow.initial_velocity_min = 5
-	glow.initial_velocity_max = 20
-	glow.scale_amount_min = 3
-	glow.scale_amount_max = 6
-	glow.color = Color(0.7, 0.9, 1.0, 0.3)
-	current_shape.add_child(glow)
 
 func spawn_next_shape():
-	if next_shape:
-		next_shape.queue_free()
+	var shape = shape_scene.instantiate()
+	shape.shape_type = randi() % 5  
 	
-	next_shape = shape_scene.instantiate()
-	next_shape.position = Vector2(0, 50)  
-	next_shape.scale = Vector2(0.5, 0.5)  
+	while current_shape and current_shape.shape_type == shape.shape_type:
+		shape.shape_type = randi() % 5
+	
+	shape.global_position = Vector2(60, 12)
+	shape.scale = Vector2(0.6, 0.6)
+	shape.freeze = true
+	
+	next_shape = shape
 	add_child(next_shape)
-	
-	
-	var preview_container = Node2D.new()
-	preview_container.name = "PreviewContainer"
-	preview_container.position = next_shape.position
-	add_child(preview_container)
-	
-	
-	var preview_glow = Sprite2D.new()
-	var glow_size = 48
-	var glow_img = Image.create(glow_size, glow_size, false, Image.FORMAT_RGBA8)
-	glow_img.fill(Color(0, 0, 0, 0))
-	
-	var center = Vector2(glow_size / 2.0, glow_size / 2.0)
-	var radius = glow_size / 2.0
-	
-	for x in range(glow_size):
-		for y in range(glow_size):
-			var dist = Vector2(x, y).distance_to(center)
-			if dist < radius:
-				var alpha = 1.0 - pow(dist / radius, 1.5)
-				glow_img.set_pixel(x, y, Color(0.9, 0.8, 1.0, alpha * 0.2))
-	
-	preview_glow.texture = ImageTexture.create_from_image(glow_img)
-	preview_glow.z_index = -1
-	preview_container.add_child(preview_glow)
-	
-	
-	var sparkles = CPUParticles2D.new()
-	sparkles.amount = 5
-	sparkles.lifetime = 1.5
-	sparkles.emission_shape = 0  
-	sparkles.emission_sphere_radius = 30
-	sparkles.local_coords = true
-	sparkles.gravity = Vector2.ZERO
-	sparkles.initial_velocity_min = 2
-	sparkles.initial_velocity_max = 5
-	sparkles.scale_amount_min = 1.0
-	sparkles.scale_amount_max = 2.5
-	sparkles.color = Color(1.0, 0.95, 0.9, 0.4)
-	preview_container.add_child(sparkles)
-	
-	
-	var preview_label = Label.new()
-	preview_label.text = "Next"
-	preview_label.position = Vector2(-20, -40)
-	preview_label.add_theme_color_override("font_color", Color(1.0, 0.9, 0.8, 0.6))
-	preview_label.add_theme_font_size_override("font_size", 12)
-	preview_container.add_child(preview_label)
-	
-	
-	next_shape.modulate.a = 0
-	var tween = safe_tween(next_shape)
-	if tween:  
-		tween.tween_property(next_shape, "modulate:a", 0.7, 0.5).set_trans(Tween.TRANS_SINE)
-	
-	
-	var rotation_tween = safe_tween(next_shape)
-	if rotation_tween:  
-		rotation_tween.set_loops(0)  
-		rotation_tween.tween_property(next_shape, "rotation", PI / 8.0, 3.0).set_trans(Tween.TRANS_SINE)
-		rotation_tween.tween_property(next_shape, "rotation", -PI / 8.0, 3.0).set_trans(Tween.TRANS_SINE)
-	
-	
-	var glow_tween = safe_tween(preview_glow)
-	if glow_tween:  
-		glow_tween.set_loops(0)  
-		glow_tween.tween_property(preview_glow, "scale", Vector2(1.2, 1.2), 1.5).set_trans(Tween.TRANS_SINE)
-		glow_tween.tween_property(preview_glow, "scale", Vector2(0.9, 0.9), 1.5).set_trans(Tween.TRANS_SINE)
 
 func add_launch_effect():
+	var effect = CPUParticles2D.new()
+	effect.position = Vector2.ZERO
+	effect.amount = 16
+	effect.lifetime = 0.5
+	effect.explosiveness = 0.9
+	effect.direction = Vector2(0, -1)
+	effect.spread = 30
+	effect.gravity = Vector2(0, 150)
+	effect.initial_velocity_min = 70
+	effect.initial_velocity_max = 100
+	effect.scale_amount_min = 4
+	effect.scale_amount_max = 6
+	effect.color = Color(1.0, 0.7, 0.4)
+	effect.color_ramp = create_particle_gradient()
 	
-	var trail = Line2D.new()
-	trail.name = "LaunchTrail"
-	trail.width = 12.0
-	trail.default_color = Color(1.0, 0.7, 0.3, 0.7)
-	trail.gradient = create_warm_gradient()
-	trail.begin_cap_mode = Line2D.LINE_CAP_ROUND
-	trail.end_cap_mode = Line2D.LINE_CAP_ROUND
-	add_child(trail)
+	add_child(effect)
+	effect.emitting = true
 	
-	
-	var start_point = Vector2.ZERO
-	var end_point = aim_direction * 150
-	trail.points = [start_point, end_point]
-	
-	
-	var particles = CPUParticles2D.new()
-	particles.name = "LaunchParticles"
-	particles.amount = 40
-	particles.lifetime = 0.6
-	particles.explosiveness = 0.6
-	particles.emission_shape = 1  
-	particles.emission_rect_extents = Vector2(end_point.length(), 1)
-	particles.direction = Vector2(0, 0)
-	particles.spread = 15.0
-	particles.gravity = Vector2(0, 0)
-	particles.initial_velocity_min = 20.0
-	particles.initial_velocity_max = 50.0
-	particles.scale_amount_min = 2.0
-	particles.scale_amount_max = 4.0
-	particles.color = Color(1.0, 0.7, 0.4, 1.0)
-	particles.color_ramp = create_warm_gradient()
-	
-	
-	particles.rotation = aim_direction.angle()
-	add_child(particles)
-	
-	
-	var cam_shake_intensity = 0.5
-	var root = get_tree().root
-	if root.has_node("Main/Camera2D"):
-		var camera = root.get_node("Main/Camera2D")
-		var orig_pos = camera.position
-		
-		var cam_tween = safe_tween(camera)
-		if cam_tween:  
-			cam_tween.tween_property(camera, "position", orig_pos + Vector2(randf_range(-1, 1), randf_range(-1, 1)) * 10 * cam_shake_intensity, 0.05)
-			cam_tween.tween_property(camera, "position", orig_pos, 0.1)
-	
-	
-	if ResourceLoader.exists("res:
-		var sound = AudioStreamPlayer.new()
-		sound.stream = load("res:
-		sound.volume_db = -10.0
-		add_child(sound)
-		sound.play()
-	
-	
-	var timer = Timer.new()
-	timer.wait_time = 0.4
-	timer.one_shot = true
-	add_child(timer)
-	timer.connect("timeout", Callable(self, "_on_trail_timer_timeout").bind(trail, particles))
-	timer.start()
+	await get_tree().create_timer(effect.lifetime + 0.1).timeout
+	effect.queue_free()
 
-func _on_trail_timer_timeout(trail, particles):
-	
-	var tween = safe_tween(trail)
-	if tween:  
-		tween.tween_property(trail, "modulate", Color(1, 1, 1, 0), 0.3)
-	
-	
-	particles.emitting = false
-	
-	
-	var cleanup_timer = Timer.new()
-	cleanup_timer.wait_time = 0.7
-	cleanup_timer.one_shot = true
-	add_child(cleanup_timer)
-	cleanup_timer.connect("timeout", Callable(self, "_cleanup_launch_effect").bind(trail, particles, cleanup_timer))
-	cleanup_timer.start()
-
-func _cleanup_launch_effect(trail, particles, timer):
-	
-	trail.queue_free()
-	particles.queue_free()
-	timer.queue_free()
-
-func create_warm_gradient():
+func create_particle_gradient() -> Gradient:
 	var gradient = Gradient.new()
-	gradient.add_point(0.0, Color(1.0, 0.8, 0.3, 0.8))
-	gradient.add_point(0.4, Color(1.0, 0.6, 0.2, 0.6))
-	gradient.add_point(0.7, Color(0.9, 0.4, 0.2, 0.3))
-	gradient.add_point(1.0, Color(0.7, 0.3, 0.2, 0.0))
+	gradient.colors = [Color(0.9, 0.7, 0.5, 1), Color(0.85, 0.6, 0.4, 0)]
+	gradient.offsets = [0, 1]
 	return gradient
 
-func play_launch_sound():
-	var sound_player = AudioStreamPlayer.new()
-	add_child(sound_player)
-	
-	
-	var sound_path = "res:
-	var sound = load(sound_path)
-	
-	if sound:
-		sound_player.stream = sound
-		sound_player.pitch_scale = randf_range(0.9, 1.1)  
-		sound_player.volume_db = -5.0
-		sound_player.play()
+func update_cooldown_visual():
+	var base = get_node_or_null("LauncherCore")
+	if not base: 
+		return
 		
+	var cooldown_percent = cooldown_timer / cooldown_time
+	var core_inner = base.get_node_or_null("Inner")
+	
+	if core_inner:
+		var initial_scale = 1.0
+		core_inner.scale = Vector2.ONE * (1.0 - cooldown_percent * 0.5) * initial_scale
 		
-		sound_player.finished.connect(func(): sound_player.queue_free())
-	else:
-		sound_player.queue_free()
+		if cooldown_percent > 0:
+			core_inner.modulate = Color(1.0, 0.7 + 0.3 * (1.0 - cooldown_percent), 0.7 + 0.3 * (1.0 - cooldown_percent))
+		else:
+			core_inner.modulate = Color(1.0, 1.0, 1.0)
+			
+			if not has_node("ReadyEffect"):
+				var ready_effect = CPUParticles2D.new()
+				ready_effect.name = "ReadyEffect"
+				ready_effect.position = Vector2.ZERO
+				ready_effect.amount = 20
+				ready_effect.lifetime = 0.5
+				ready_effect.explosiveness = 0.8
+				ready_effect.one_shot = true
+				ready_effect.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+				ready_effect.emission_sphere_radius = 10.0
+				ready_effect.direction = Vector2(0, -1)
+				ready_effect.spread = 180
+				ready_effect.gravity = Vector2.ZERO
+				ready_effect.initial_velocity_min = 30
+				ready_effect.initial_velocity_max = 50
+				ready_effect.scale_amount_min = 3
+				ready_effect.scale_amount_max = 5
+				ready_effect.color = Color(1.0, 0.9, 0.7, 0.8)
+				add_child(ready_effect)
+				ready_effect.emitting = true
+				
+				var timer = Timer.new()
+				timer.wait_time = 1.0
+				timer.one_shot = true
+				ready_effect.add_child(timer)
+				timer.start()
+				timer.timeout.connect(func(): ready_effect.queue_free())
+
+func create_launcher_components():
+	launcher_core = Node2D.new()
+	launcher_core.name = "LauncherCore"
+	launcher_core.z_index = -1
+	add_child(launcher_core)
+	
+	var core_width = 40
+	var core_height = 25
+	var corner_radius = 10
+	
+	var base = create_rounded_rect(Vector2.ZERO, core_width, core_height, corner_radius, Color(0.65, 0.5, 0.35))
+	launcher_core.add_child(base)
+	
+	launcher_inner = Node2D.new()
+	launcher_inner.name = "Inner"
+	launcher_core.add_child(launcher_inner)
+	
+	var inner_width = 28
+	var inner_height = 18
+	var inner_corner_radius = 7
+	
+	var inner = create_rounded_rect(Vector2(0, -3), inner_width, inner_height, inner_corner_radius, Color(0.75, 0.6, 0.4, 0.9))
+	launcher_inner.add_child(inner)
 
 func create_enhanced_crosshair():
-	
-	var outer_glow = ColorRect.new()
-	var glow_size = 40
-	outer_glow.size = Vector2(glow_size, glow_size)
-	outer_glow.position = Vector2(-glow_size / 2.0, -glow_size / 2.0)
-	
-	
-	outer_glow.color = Color(1.0, 0.9, 0.7, 0.15)
+	var outer_glow = create_rounded_rect(Vector2.ZERO, 40, 40, 20, Color(0.85, 0.65, 0.45, 0.15))
 	add_child(outer_glow)
-	
 	
 	var crosshair = Node2D.new()
 	crosshair.name = "Crosshair"
 	add_child(crosshair)
 	
-	
 	var crosshair_size = 24
 	var crosshair_image = Image.create(crosshair_size, crosshair_size, false, Image.FORMAT_RGBA8)
 	crosshair_image.fill(Color(0,0,0,0))
-	
 	
 	var center = Vector2(crosshair_size / 2.0, crosshair_size / 2.0)
 	var outer_radius = crosshair_size / 2.0
@@ -409,20 +314,17 @@ func create_enhanced_crosshair():
 			var pos = Vector2(x, y)
 			var dist = pos.distance_to(center)
 			
-			
 			if dist < outer_radius:
-				var color = Color(1.0, 0.95, 0.8, 0)
+				var color_val = Color(0.9, 0.7, 0.5, 0)
 				
 				if dist > inner_radius:
-					
 					var ring_factor = 1.0 - (dist - inner_radius) / (outer_radius - inner_radius)
-					color.a = 0.6 * ring_factor
+					color_val.a = 0.6 * ring_factor
 				elif dist < center_dot_radius:
-					
 					var dot_factor = 1.0 - dist / center_dot_radius
-					color.a = 0.7 * dot_factor
+					color_val.a = 0.7 * dot_factor
 				
-				crosshair_image.set_pixel(x, y, color)
+				crosshair_image.set_pixel(x, y, color_val)
 	
 	var crosshair_texture = ImageTexture.create_from_image(crosshair_image)
 	
@@ -430,13 +332,11 @@ func create_enhanced_crosshair():
 	sprite.texture = crosshair_texture
 	crosshair.add_child(sprite)
 	
-	
 	var tween = safe_tween(outer_glow)
 	if tween:  
 		tween.set_loops(0)  
 		tween.tween_property(outer_glow, "scale", Vector2(1.2, 1.2), 1.3).set_trans(Tween.TRANS_SINE)
 		tween.tween_property(outer_glow, "scale", Vector2(0.9, 0.9), 1.3).set_trans(Tween.TRANS_SINE)
-	
 	
 	var rot_tween = safe_tween(crosshair)
 	if rot_tween:  
@@ -444,29 +344,26 @@ func create_enhanced_crosshair():
 		rot_tween.tween_property(crosshair, "rotation", PI / 5.0, 3.0).set_trans(Tween.TRANS_SINE)
 		rot_tween.tween_property(crosshair, "rotation", -PI / 5.0, 3.0).set_trans(Tween.TRANS_SINE)
 	
-	
 	var particles = CPUParticles2D.new()
 	particles.amount = 10
 	particles.lifetime = 2.0
 	particles.local_coords = true
-	particles.emission_shape = 0  
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	particles.emission_sphere_radius = 5
 	particles.gravity = Vector2.ZERO
 	particles.initial_velocity_min = 5
 	particles.initial_velocity_max = 10
 	particles.scale_amount_min = 1.5
 	particles.scale_amount_max = 3
-	particles.color = Color(1.0, 0.95, 0.8, 0.5)
+	particles.color = Color(0.9, 0.7, 0.5, 0.5)
 	crosshair.add_child(particles)
 
 func create_ambient_glow():
-	if not has_node("LauncherCore") or not has_node("LauncherInner"):
+	if not has_node("LauncherCore"):
 		return
 		
-	var launcher_core = get_node("LauncherCore")
-	var launcher_inner = get_node("LauncherInner")
+	var l_core = get_node("LauncherCore")
 		
-	
 	var ambient_light = Sprite2D.new()
 	ambient_light.z_index = -1
 	
@@ -488,8 +385,7 @@ func create_ambient_glow():
 				light_image.set_pixel(x, y, color)
 	
 	ambient_light.texture = ImageTexture.create_from_image(light_image)
-	launcher_core.add_child(ambient_light)
-	
+	l_core.add_child(ambient_light)
 	
 	var ambient_tween = safe_tween(ambient_light)
 	if ambient_tween:  
@@ -497,13 +393,12 @@ func create_ambient_glow():
 		ambient_tween.tween_property(ambient_light, "scale", Vector2(1.2, 1.2), 3.0).set_trans(Tween.TRANS_SINE)
 		ambient_tween.tween_property(ambient_light, "scale", Vector2(0.8, 0.8), 3.0).set_trans(Tween.TRANS_SINE)
 	
-	
 	var ambient_particles = CPUParticles2D.new()
 	ambient_particles.name = "AmbientParticles"
 	ambient_particles.amount = 15
 	ambient_particles.lifetime = 4.0
 	ambient_particles.preprocess = 2.0
-	ambient_particles.emission_shape = 0  
+	ambient_particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
 	ambient_particles.emission_sphere_radius = 60
 	ambient_particles.spread = 180
 	ambient_particles.gravity = Vector2.ZERO
@@ -513,7 +408,6 @@ func create_ambient_glow():
 	ambient_particles.scale_amount_max = 5.0
 	ambient_particles.color = Color(1.0, 0.85, 0.7, 0.2)
 	add_child(ambient_particles)
-	
 	
 	var timer = Timer.new()
 	timer.wait_time = 0.8
@@ -529,11 +423,9 @@ func create_random_sparkle():
 	var sparkle = Node2D.new()
 	add_child(sparkle)
 	
-	
 	var angle = randf() * 2 * PI
 	var distance = randf_range(20, 60)
 	sparkle.position = Vector2(cos(angle) * distance, sin(angle) * distance)
-	
 	
 	var sprite = Sprite2D.new()
 	var size = 8
@@ -550,7 +442,6 @@ func create_random_sparkle():
 	
 	sprite.texture = ImageTexture.create_from_image(img)
 	sparkle.add_child(sprite)
-	
 	
 	var tween = safe_tween(sparkle)
 	sparkle.scale = Vector2(0.1, 0.1)
@@ -579,9 +470,7 @@ func create_trajectory_dots():
 		dot.visible = false
 		trajectory_marker.add_child(dot)
 		
-		
 		var dot_sprite = Sprite2D.new()
-		
 		
 		var dot_size = 16
 		var dot_image = Image.create(dot_size, dot_size, false, Image.FORMAT_RGBA8)
@@ -604,208 +493,344 @@ func create_trajectory_dots():
 		dot_sprite.scale = Vector2(0.5, 0.5)
 		dot.add_child(dot_sprite)
 		
-		
 		var tween = safe_tween(dot_sprite)
 		if tween:  
 			tween.set_loops(0)  
 			tween.tween_property(dot_sprite, "scale", Vector2(0.6, 0.6), 1.0).set_trans(Tween.TRANS_SINE)
 			tween.tween_property(dot_sprite, "scale", Vector2(0.4, 0.4), 1.0).set_trans(Tween.TRANS_SINE)
 
-func update_cooldown_visual():
+func play_launch_sound():
+	var player = AudioStreamPlayer.new()
+	player.volume_db = -8
+	player.pitch_scale = randf_range(0.9, 1.1)
 	
-	if $LauncherCore:
-		var progress = 1.0 - (cooldown_timer / cooldown_time)
-		var cooldown_color = Color(0.6, 0.3, 0.2, 1).lerp(Color(1.0, 0.7, 0.4, 1), progress)
-		$LauncherCore.color = cooldown_color
-		
-		
-		if progress >= 1.0:
-			var pulse_tween = safe_tween($LauncherCore)
-			if pulse_tween:  
-				pulse_tween.tween_property($LauncherCore, "scale", Vector2(1.2, 1.2), 0.2).set_trans(Tween.TRANS_SINE)
-				pulse_tween.tween_property($LauncherCore, "scale", Vector2(1.0, 1.0), 0.2).set_trans(Tween.TRANS_SINE)
-		
-		
-		if $LauncherInner:
-			$LauncherInner.color = Color(0.8, 0.4, 0.2, 1).lerp(Color(1.0, 0.8, 0.5, 1), progress)
+	# Try to load the sound, but don't crash if it fails
+	var sound
+	
+	# First try to load from resources
+	if ResourceLoader.exists("res://assets/audio/effects/launch1.ogg"):
+		sound = load("res://assets/audio/effects/launch1.ogg")
+	else:
+		# Create a very simple beep as fallback
+		sound = AudioStreamGenerator.new()
+		sound.mix_rate = 44100
+		sound.buffer_length = 0.1  # 100ms buffer
+	
+	player.stream = sound
+	add_child(player)
+	player.play()
+	
+	# Create a timer to clean up the player after it's done
+	var timer = Timer.new()
+	timer.wait_time = 1.0
+	timer.one_shot = true
+	player.add_child(timer)
+	timer.start()
+	
+	# Connect the timeout signal to a function that will free the player
+	timer.timeout.connect(func(): player.queue_free())
 
-func get_launch_direction() -> Vector2:
-	
-	return (get_global_mouse_position() - global_position).normalized()
-
-func get_launch_power() -> float:
-	
-	var distance = global_position.distance_to(get_global_mouse_position())
-	return clamp(distance * 2.0, 200.0, 600.0)
-
-func create_launcher_components():
-	
-	
-	
-	var launcher_outer = Node2D.new()
-	launcher_outer.name = "LauncherOuter"
-	add_child(launcher_outer)
-	
-	
-	var outer_circle = Sprite2D.new()
-	var circle_size = 80
-	var circle_img = Image.create(circle_size, circle_size, false, Image.FORMAT_RGBA8)
-	circle_img.fill(Color(0,0,0,0))
-	
-	var center = Vector2(circle_size/2, circle_size/2)
-	var radius = circle_size/2
-	
-	for x in range(circle_size):
-		for y in range(circle_size):
-			var dist = Vector2(x, y).distance_to(center)
-			if dist < radius:
-				var gradient_factor = 1.0 - (dist / radius)
-				var color = Color(0.98, 0.92, 0.85, 1.0)  
-				circle_img.set_pixel(x, y, color)
-	
-	outer_circle.texture = ImageTexture.create_from_image(circle_img)
-	launcher_outer.add_child(outer_circle)
-	
-	
-	var glow = Sprite2D.new()
-	var glow_size = 100
-	var glow_img = Image.create(glow_size, glow_size, false, Image.FORMAT_RGBA8)
-	glow_img.fill(Color(0,0,0,0))
-	
-	center = Vector2(glow_size/2, glow_size/2)
-	radius = glow_size/2
-	
-	for x in range(glow_size):
-		for y in range(glow_size):
-			var dist = Vector2(x, y).distance_to(center)
-			if dist < radius:
-				var alpha = 0.3 * (1.0 - pow(dist / radius, 1.5))
-				glow_img.set_pixel(x, y, Color(0.98, 0.85, 0.7, alpha))
-	
-	glow.texture = ImageTexture.create_from_image(glow_img)
-	glow.z_index = -1
-	launcher_outer.add_child(glow)
-	
-	
-	var launcher_core = Node2D.new()
-	launcher_core.name = "LauncherCore"
-	launcher_outer.add_child(launcher_core)
-	
-	var core_circle = Sprite2D.new()
-	var core_size = 60
-	var core_img = Image.create(core_size, core_size, false, Image.FORMAT_RGBA8)
-	core_img.fill(Color(0,0,0,0))
-	
-	center = Vector2(core_size/2, core_size/2)
-	radius = core_size/2
-	
-	for x in range(core_size):
-		for y in range(core_size):
-			var dist = Vector2(x, y).distance_to(center)
-			if dist < radius:
-				var gradient_factor = 1.0 - (dist / radius)
-				var color = Color(0.98, 0.8, 0.65, 1.0)  
-				core_img.set_pixel(x, y, color)
-	
-	core_circle.texture = ImageTexture.create_from_image(core_img)
-	launcher_core.add_child(core_circle)
-	
-	
-	var launcher_inner = Node2D.new()
-	launcher_inner.name = "LauncherInner"
-	launcher_core.add_child(launcher_inner)
-	
-	var inner_circle = Sprite2D.new()
-	var inner_size = 40
-	var inner_img = Image.create(inner_size, inner_size, false, Image.FORMAT_RGBA8)
-	inner_img.fill(Color(0,0,0,0))
-	
-	center = Vector2(inner_size/2, inner_size/2)
-	radius = inner_size/2
-	
-	for x in range(inner_size):
-		for y in range(inner_size):
-			var dist = Vector2(x, y).distance_to(center)
-			if dist < radius:
-				var gradient_factor = 1.0 - (dist / radius)
-				var color = Color(0.99, 0.92, 0.82, 1.0)  
-				inner_img.set_pixel(x, y, color)
-	
-	inner_circle.texture = ImageTexture.create_from_image(inner_img)
-	launcher_inner.add_child(inner_circle)
-	
-	
-	add_launcher_decorations(launcher_inner)
-	
-	
-	var pulse_tween = safe_tween(launcher_outer)
-	if pulse_tween:
-		pulse_tween.set_loops(0)  
-		pulse_tween.tween_property(launcher_outer, "scale", Vector2(1.05, 1.05), 1.5).set_trans(Tween.TRANS_SINE)
-		pulse_tween.tween_property(launcher_outer, "scale", Vector2(0.98, 0.98), 1.5).set_trans(Tween.TRANS_SINE)
-
-func add_launcher_decorations(parent):
-	
-	
-	
-	var heart = Node2D.new()
-	heart.position = Vector2(0, -5)
-	parent.add_child(heart)
-	
-	
-	var heart_tex = Sprite2D.new()
-	heart.add_child(heart_tex)
-	
-	
-	var heart_size = 16
-	var heart_img = Image.create(heart_size, heart_size, false, Image.FORMAT_RGBA8)
-	heart_img.fill(Color(0,0,0,0))
-	
-	
-	var center_x = heart_size / 2
-	var center_y = heart_size / 2
-	
-	for x in range(heart_size):
-		for y in range(heart_size):
-			var dx = (x - center_x) / float(heart_size)
-			var dy = (y - center_y) / float(heart_size)
-			
-			
-			var inside = pow(dx, 2) + pow(dy - 0.5 * sqrt(abs(dx)), 2) < 0.3
-			
-			if inside:
-				heart_img.set_pixel(x, y, Color(0.95, 0.65, 0.65, 0.7))
-	
-	heart_tex.texture = ImageTexture.create_from_image(heart_img)
-	
-	
-	var sparkles = CPUParticles2D.new()
-	sparkles.amount = 5
-	sparkles.lifetime = 2.0
-	sparkles.preprocess = 1.0
-	sparkles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	sparkles.emission_sphere_radius = 25
-	sparkles.gravity = Vector2(0, 0)
-	sparkles.initial_velocity_min = 1
-	sparkles.initial_velocity_max = 3
-	sparkles.scale_amount_min = 1.0
-	sparkles.scale_amount_max = 2.0
-	sparkles.color = Color(1.0, 0.98, 0.9, 0.6)
-	parent.add_child(sparkles)
-	
-	
-	var heart_tween = safe_tween(heart)
-	if heart_tween:
-		heart_tween.set_loops(0)  
-		heart_tween.tween_property(heart, "scale", Vector2(1.1, 1.1), 1.2).set_trans(Tween.TRANS_SINE)
-		heart_tween.tween_property(heart, "scale", Vector2(0.9, 0.9), 1.2).set_trans(Tween.TRANS_SINE)
-
-
-func safe_tween(target_node: Node = null) -> Tween:
+func safe_tween(target_obj: Node = null) -> Tween:
 	var tween = create_tween()
 	if tween == null:
-		
-		if target_node:
-			tween = target_node.create_tween()
+		if target_obj:
+			tween = target_obj.create_tween()
 	
 	return tween
+
+func create_launcher_visuals():
+	var base = Node2D.new()
+	base.name = "LauncherVisuals"
+	base.z_index = -2
+	add_child(base)
+	
+	var shadows = Node2D.new()
+	shadows.name = "Shadows"
+	shadows.position = Vector2(3, 3)
+	shadows.z_index = -1
+	shadows.modulate = Color(0, 0, 0, 0.15)
+	base.add_child(shadows)
+	
+	# Create a rounded launcher base with softer edges
+	create_rounded_launcher_base(base, shadows)
+	
+	var next_shape_label = Label.new()
+	next_shape_label.text = "NEXT"
+	next_shape_label.position = Vector2(35, 0)
+	next_shape_label.add_theme_font_size_override("font_size", 10)
+	next_shape_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.4))
+	base.add_child(next_shape_label)
+	
+	var core_glow = create_launcher_glow()
+	core_glow.name = "CoreGlow"
+	core_glow.z_index = -3
+	base.add_child(core_glow)
+
+func create_rounded_launcher_base(parent, shadow_parent):
+	# Create a soft rounded polygon for the base
+	var base_width = 50
+	var base_height = 30
+	var corner_radius = 12
+	
+	var body = create_rounded_rect(Vector2.ZERO, base_width, base_height, corner_radius, Color(0.65, 0.5, 0.35, 0.9))
+	body.z_index = -1
+	parent.add_child(body)
+	
+	var shadow_body = create_rounded_rect(Vector2.ZERO, base_width, base_height, corner_radius, Color(0.55, 0.4, 0.25, 0.8))
+	shadow_parent.add_child(shadow_body)
+	
+	# Add inner details with rounded corners
+	var inner_width = 30
+	var inner_height = 20
+	var inner_corner = 8
+	
+	var inner_body = create_rounded_rect(Vector2(0, -5), inner_width, inner_height, inner_corner, Color(0.75, 0.6, 0.4, 0.9))
+	inner_body.z_index = 0
+	parent.add_child(inner_body)
+
+# Helper function to create a rounded rectangle
+func create_rounded_rect(pos: Vector2, width: float, height: float, corner_radius: float, color: Color) -> Node2D:
+	var container = Node2D.new()
+	container.position = pos
+	
+	var rect = Sprite2D.new()
+	
+	var img_width = int(width) + 4
+	var img_height = int(height) + 4
+	var img = Image.create(img_width, img_height, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	
+	var center = Vector2(img_width / 2.0, img_height / 2.0)
+	
+	for x in range(img_width):
+		for y in range(img_height):
+			var point = Vector2(x, y)
+			var local_x = x - img_width / 2.0
+			var local_y = y - img_height / 2.0
+			
+			# Check if point is within the rounded rectangle
+			var in_rect = false
+			
+			# Center rectangle region (excluding corners)
+			if abs(local_x) <= (width / 2.0 - corner_radius) or abs(local_y) <= (height / 2.0 - corner_radius):
+				if abs(local_x) <= width / 2.0 and abs(local_y) <= height / 2.0:
+					in_rect = true
+			# Corner regions - use distance to corner center
+			else:
+				var corner_center_x = -width / 2.0 + corner_radius if local_x < 0 else width / 2.0 - corner_radius
+				var corner_center_y = -height / 2.0 + corner_radius if local_y < 0 else height / 2.0 - corner_radius
+				var dist = Vector2(local_x - corner_center_x, local_y - corner_center_y).length()
+				
+				if dist <= corner_radius:
+					in_rect = true
+			
+			if in_rect:
+				img.set_pixel(x, y, color)
+	
+	rect.texture = ImageTexture.create_from_image(img)
+	container.add_child(rect)
+	
+	return container
+
+func create_launcher_glow() -> Node2D:
+	var glow_container = Node2D.new()
+	
+	var glow_effect = create_glow_particles()
+	glow_container.add_child(glow_effect)
+	
+	return glow_container
+
+func create_glow_particles() -> CPUParticles2D:
+	var particles = CPUParticles2D.new()
+	particles.amount = 20
+	particles.lifetime = 1.5
+	particles.explosiveness = 0.1
+	particles.randomness = 0.5
+	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+	particles.emission_sphere_radius = 15.0
+	particles.gravity = Vector2.ZERO
+	particles.initial_velocity_min = 5.0
+	particles.initial_velocity_max = 10.0
+	particles.angular_velocity_min = -50.0
+	particles.angular_velocity_max = 50.0
+	particles.linear_accel_min = -5.0
+	particles.linear_accel_max = -5.0
+	particles.radial_accel_min = -10.0
+	particles.radial_accel_max = -10.0
+	particles.damping_min = 5.0
+	particles.damping_max = 5.0
+	particles.angle_min = 0.0
+	particles.angle_max = 360.0
+	particles.scale_amount_min = 5.0
+	particles.scale_amount_max = 10.0
+	particles.color = Color(0.85, 0.65, 0.45, 0.2)
+	particles.color_ramp = create_glow_gradient()
+	
+	return particles
+
+func create_glow_gradient() -> Gradient:
+	var gradient = Gradient.new()
+	gradient.colors = [Color(0.85, 0.65, 0.4, 0.3), Color(0.8, 0.6, 0.35, 0)]
+	gradient.offsets = [0, 1]
+	return gradient
+
+func get_target_position():
+	var target_pos = get_global_mouse_position()
+	
+	var dir = (target_pos - global_position).normalized()
+	var max_distance = 300
+	var distance = min((target_pos - global_position).length(), max_distance)
+	
+	return global_position + dir * distance
+
+func launch_shape_at_target():
+	if not can_launch:
+		return
+		
+	var target_pos = get_target_position()
+	launch_shape_at_position(target_pos)
+
+func launch_shape_at_position(target_pos: Vector2):
+	if not can_launch or not current_shape:
+		return
+	
+	var launch_dir = (target_pos - global_position).normalized()
+	
+	current_shape.freeze = false
+	current_shape.apply_central_impulse(launch_dir * launch_speed)
+	current_shape.launched = true
+	
+	spawn_current_shape()
+	
+	if next_shape:
+		next_shape.queue_free()
+	spawn_next_shape()
+	
+	cooldown_timer = cooldown_time
+	can_launch = false
+	
+	play_launch_sound()
+	add_launch_effect()
+	
+	SignalBus.emit_signal("shape_launched", current_shape)
+
+func highlight_target_position():
+	var target_pos = get_target_position()
+	
+	if not target_node:
+		target_node = Node2D.new()
+		target_node.name = "TargetHighlight"
+		target_node.z_index = -1
+		get_parent().add_child(target_node)
+		
+		target_particles = CPUParticles2D.new()
+		target_particles.amount = 12
+		target_particles.lifetime = 0.8
+		target_particles.explosiveness = 0.0
+		target_particles.local_coords = false
+		target_particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+		target_particles.emission_sphere_radius = 10.0
+		target_particles.direction = Vector2.RIGHT
+		target_particles.spread = 180.0
+		target_particles.gravity = Vector2.ZERO
+		target_particles.initial_velocity_min = 0.0
+		target_particles.initial_velocity_max = 0.0
+		target_particles.orbit_velocity_min = 1.0
+		target_particles.orbit_velocity_max = 2.0
+		target_particles.radial_accel_min = -10.0
+		target_particles.radial_accel_max = -10.0
+		target_particles.scale_amount_min = 2.0
+		target_particles.scale_amount_max = 3.0
+		target_particles.color = Color(1, 0.7, 0.3, 0.7)
+		target_particles.color_ramp = create_target_gradient()
+		
+		target_node.add_child(target_particles)
+		
+	target_node.global_position = target_pos
+	target_particles.emitting = true
+
+func create_target_gradient() -> Gradient:
+	var gradient = Gradient.new()
+	gradient.colors = [Color(0.9, 0.7, 0.5, 0.8), Color(0.85, 0.6, 0.4, 0)]
+	gradient.offsets = [0, 1]
+	return gradient
+
+func detect_game_over():
+	var tolerance = 5
+	
+	var space_state = get_world_2d().direct_space_state
+	var query = PhysicsShapeQueryParameters2D.new()
+	query.set_shape(RectangleShape2D.new())
+	query.shape.extents = Vector2(tolerance, 15)
+	query.transform = Transform2D(0, Vector2(global_position.x, global_position.y - 15))
+	query.collision_mask = 2
+	
+	var results = space_state.intersect_shape(query)
+	
+	if results.size() > 0:
+		for result in results:
+			if result.collider is RigidBody2D and result.collider.is_in_group("shapes"):
+				if not result.collider.launched and not result.collider.is_queued_for_deletion():
+					end_game()
+					break
+
+func end_game():
+	if game_over: 
+		return
+		
+	game_over = true
+	
+	SignalBus.emit_signal("game_over")
+	
+	var all_shapes = get_tree().get_nodes_in_group("shapes")
+	for shape in all_shapes:
+		shape.freeze = false
+		shape.gravity_scale = 1
+		
+		var explosion_force = 150
+		var dir = (shape.global_position - global_position).normalized()
+		shape.apply_central_impulse(dir * explosion_force)
+
+func _on_detection_timer_timeout():
+	if game_over:
+		return
+		
+	detect_game_over()
+
+func _on_shape_bounced(body_node: Node):
+	if body_node is RigidBody2D and body_node.is_in_group("shapes") and body_node.launched:
+		body_node.launched = false
+		
+		var bounce_force = 80.0
+		var bounce_dir = (body_node.global_position - global_position).normalized()
+		body_node.apply_central_impulse(bounce_dir * bounce_force)
+
+func create_launch_flash():
+	var flash = Sprite2D.new()
+	flash.z_index = 10
+	
+	# Create a simple white flash texture
+	var flash_size = 64
+	var flash_image = Image.create(flash_size, flash_size, false, Image.FORMAT_RGBA8)
+	flash_image.fill(Color(1, 1, 1, 0))
+	
+	var center = Vector2(flash_size / 2.0, flash_size / 2.0)
+	var max_radius = flash_size / 2.0
+	
+	for x in range(flash_size):
+		for y in range(flash_size):
+			var pos = Vector2(x, y)
+			var dist = pos.distance_to(center)
+			
+			if dist < max_radius:
+				var alpha = 1.0 - pow(dist / max_radius, 2)
+				flash_image.set_pixel(x, y, Color(1, 0.95, 0.8, alpha))
+	
+	flash.texture = ImageTexture.create_from_image(flash_image)
+	flash.modulate.a = 0.8
+	add_child(flash)
+	
+	var tween = safe_tween(flash)
+	if tween:
+		tween.tween_property(flash, "modulate:a", 0.0, 0.3)
+		tween.tween_callback(flash.queue_free)
