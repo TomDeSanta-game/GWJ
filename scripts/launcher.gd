@@ -1,84 +1,56 @@
 extends Node2D  
 
+# Configuration
 @export var shape_scene: PackedScene  
 @export var launch_speed: float = 700.0  
 @export var cooldown_time: float = 0.5  
 
+# Core state
 var current_shape: Node = null  
 var next_shape: Node = null  
 var can_launch: bool = true  
 var cooldown_timer: float = 0.0  
 var aim_direction: Vector2 = Vector2.UP  
-var trajectory_points = []
-var max_trajectory_points = 8  
-var crosshair_rotation = 0.0  
+var game_over: bool = false
 
-var launcher_direction: Marker2D
+# Components
 var launcher_core: Node2D
 var launcher_inner: Node2D
+var target_node: Node2D = null
+var target_particles: CPUParticles2D = null
 
+# Trajectory
+var trajectory_points = []
+var max_trajectory_points = 10  
+var crosshair_rotation = 0.0
+
+var launcher_direction: Marker2D
 var trajectory_marker: Node2D
 const MAX_DOTS = 10
 
-var target_node: Node2D = null
-var target_particles: CPUParticles2D = null
-var game_over: bool = false
-
 func _ready():  
+	initialize_launcher()
+	spawn_current_shape()
+
+func initialize_launcher():
 	ensure_launcher_parts()
 	create_launcher_visuals()
 	create_enhanced_crosshair()
 	create_ambient_glow()
-	create_trajectory_dots()
+	modify_existing_trajectory_pointer()
 	
 	var existing_shape = get_node_or_null("Shape")
 	if existing_shape:
 		existing_shape.queue_free()
-	
-	spawn_current_shape()
 
 func ensure_launcher_parts():
-	if not has_node("LauncherDirection"):
-		var launcher_dir = Line2D.new()
-		launcher_dir.name = "LauncherDirection"
-		launcher_dir.width = 2.0
-		launcher_dir.default_color = Color(1.0, 0.8, 0.5, 0.3)
-		launcher_dir.points = [Vector2.ZERO, Vector2(0, -50)]
-		launcher_dir.z_index = 1
-		add_child(launcher_dir)
-	
 	if not has_node("LauncherCore"):
 		create_launcher_components()
 
 func _process(delta):  
-	if not can_launch:
-		cooldown_timer -= delta
-		if cooldown_timer <= 0:
-			can_launch = true
-			cooldown_timer = 0.0
-		
-		update_cooldown_visual()
-	
-	var mouse_pos = get_global_mouse_position()
-	aim_direction = (mouse_pos - global_position).normalized()
-	
-	if has_node("LauncherDirection"):
-		$LauncherDirection.rotation = aim_direction.angle() + PI/2
-	
-	var crosshair = get_node_or_null("Crosshair")
-	if crosshair:
-		crosshair.global_position = mouse_pos
-		
-		crosshair_rotation += delta * 0.5
-		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else crosshair.get_child(0) if crosshair.get_child_count() > 0 else null
-		if inner_crosshair:
-			inner_crosshair.rotation = crosshair_rotation
-	
-	var reticle = get_node_or_null("LauncherReticle")
-	if reticle:
-		reticle.rotation = aim_direction.angle() + PI/2
-	
-	update_trajectory()
+	update_cooldown(delta)
+	update_aim()
+	update_visuals(delta)
 	
 	if Input.is_action_just_pressed("fire") and can_launch and current_shape != null:
 		launch_shape()
@@ -88,6 +60,38 @@ func _input(event):
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			if can_launch and current_shape != null:
 				launch_shape()
+
+func update_cooldown(delta):
+	if not can_launch:
+		cooldown_timer -= delta
+		if cooldown_timer <= 0:
+			can_launch = true
+			cooldown_timer = 0.0
+		
+		update_cooldown_visual()
+
+func update_aim():
+	var mouse_pos = get_global_mouse_position()
+	aim_direction = (mouse_pos - global_position).normalized()
+	update_trajectory_pointer(mouse_pos)
+
+func update_visuals(delta: float = 0.0):
+	var mouse_pos = get_global_mouse_position()
+	
+	# Update crosshair
+	var crosshair = get_node_or_null("Crosshair")
+	if crosshair:
+		crosshair.global_position = mouse_pos
+		
+		crosshair_rotation += delta * 0.5
+		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else crosshair.get_child(0) if crosshair.get_child_count() > 0 else null
+		if inner_crosshair:
+			inner_crosshair.rotation = crosshair_rotation
+	
+	# Update reticle
+	var reticle = get_node_or_null("LauncherReticle")
+	if reticle:
+		reticle.rotation = aim_direction.angle() + PI/2
 
 func launch_shape():
 	if not can_launch or not current_shape:
@@ -105,8 +109,8 @@ func launch_shape():
 		current_shape.global_position = global_position
 		
 		current_shape.freeze = false
-		current_shape.gravity_scale = 0.5  # Add some gravity for more interesting physics
-		current_shape.linear_damp = 0.3    # Add some damping for more controlled movement
+		current_shape.gravity_scale = 0.5
+		current_shape.linear_damp = 0.3
 		
 		current_shape.apply_central_impulse(aim_direction * launch_speed)
 		if current_shape.has_method("set_launched"):
@@ -149,63 +153,6 @@ func spawn_current_shape():
 	
 	current_shape = shape
 	add_child(current_shape)
-
-func update_trajectory():
-	var start_pos = global_position
-	var vel = aim_direction * launch_speed
-	var gravity = Vector2(0, 980)  
-	var time_step = 0.15  
-	
-	if not trajectory_marker:
-		create_trajectory_dots()
-	
-	var max_dots = min(max_trajectory_points, trajectory_points.size())
-	for i in range(max_dots):
-		var time = time_step * i
-		var pos = start_pos + vel * time + 0.5 * gravity * time * time
-		
-		if i < trajectory_points.size() and trajectory_points[i] != null:
-			trajectory_points[i].global_position = pos
-			trajectory_points[i].visible = can_launch
-			
-			var inner_point = trajectory_points[i].get_child(0) if trajectory_points[i].get_child_count() > 0 else null
-			if inner_point:
-				var scale_pulse = 1.0 + sin(Time.get_ticks_msec() * 0.005 + i * 0.3) * 0.2
-				inner_point.scale = Vector2(scale_pulse, scale_pulse)
-				
-				var fade = i / float(max_trajectory_points)
-				var alpha = 0.8 - (i * 0.1)
-				
-				if inner_point.get_child_count() > 0 and inner_point.get_child(0) != null:
-					inner_point.get_child(0).modulate = Color(1.0, 0.9 - fade * 0.2, 0.7 - fade * 0.3, alpha)
-
-func add_launch_effect():
-	var effect = CPUParticles2D.new()
-	effect.position = Vector2.ZERO
-	effect.amount = 16
-	effect.lifetime = 0.5
-	effect.explosiveness = 0.9
-	effect.direction = Vector2(0, -1)
-	effect.spread = 30
-	effect.gravity = Vector2(0, 150)
-	effect.initial_velocity_min = 70
-	effect.initial_velocity_max = 100
-	effect.scale_amount_min = 4
-	effect.scale_amount_max = 6
-	effect.color = Color(1.0, 0.7, 0.4)
-	effect.color_ramp = create_particle_gradient()
-	
-	add_child(effect)
-	effect.emitting = true
-	
-	await get_tree().create_timer(effect.lifetime + 0.1).timeout
-	effect.queue_free()
-
-func create_particle_gradient() -> Gradient:
-	var gradient = Gradient.new()
-	gradient.colors = [Color(0.9, 0.7, 0.5, 1), Color(0.85, 0.6, 0.4, 0)]
-	gradient.offsets = [0, 1]
-	return gradient
 
 func update_cooldown_visual():
 	var base = get_node_or_null("LauncherCore")
@@ -281,59 +228,146 @@ func create_enhanced_crosshair():
 	crosshair.name = "Crosshair"
 	add_child(crosshair)
 	
-	var pointer_size = 40
-	var pointer_bg = create_rounded_rect(Vector2.ZERO, pointer_size, pointer_size, 20, Color(0.85, 0.7, 0.5, 0.15))
-	pointer_bg.scale = Vector2(1.2, 1.2)
-	crosshair.add_child(pointer_bg)
+	# Improved cursor with circular background
+	var bg = Polygon2D.new()
+	var num_points = 16
+	var radius = 12
+	var points = []
+	for i in range(num_points):
+		var angle = 2 * PI * i / num_points
+		points.append(Vector2(cos(angle) * radius, sin(angle) * radius))
+	bg.polygon = points
+	bg.color = Color(0.9, 0.7, 0.4, 0.2)
+	crosshair.add_child(bg)
 	
-	var outer_ring = create_animated_ring(14, Color(0.9, 0.75, 0.55, 0.5), 2.5)
-	outer_ring.position = Vector2.ZERO
+	# Outer ring
+	var outer_ring = Line2D.new()
+	outer_ring.width = 1.5
+	outer_ring.default_color = Color(0.9, 0.7, 0.4, 0.6)
+	var ring_points = []
+	for i in range(num_points + 1):
+		var angle = 2 * PI * i / num_points
+		ring_points.append(Vector2(cos(angle) * radius, sin(angle) * radius))
+	outer_ring.points = ring_points
 	crosshair.add_child(outer_ring)
 	
-	var inner_ring = create_animated_ring(8, Color(1.0, 0.85, 0.65, 0.7), 1.5)
-	inner_ring.position = Vector2.ZERO
-	crosshair.add_child(inner_ring)
-	
-	var center_dot = ColorRect.new()
-	center_dot.color = Color(1.0, 0.8, 0.6, 0.8)
-	center_dot.size = Vector2(4, 4)
-	center_dot.position = Vector2(-2, -2)
-	crosshair.add_child(center_dot)
-	
+	# Improved crosshair lines
 	var h_line = Line2D.new()
-	h_line.width = 1.2
-	h_line.default_color = Color(0.9, 0.75, 0.55, 0.5)
-	h_line.points = [Vector2(-20, 0), Vector2(-6, 0), Vector2(6, 0), Vector2(20, 0)]
+	h_line.width = 1.5
+	h_line.default_color = Color(0.9, 0.7, 0.4, 0.7)
+	h_line.points = [Vector2(-8, 0), Vector2(8, 0)]
 	crosshair.add_child(h_line)
 	
 	var v_line = Line2D.new()
-	v_line.width = 1.2
-	v_line.default_color = Color(0.9, 0.75, 0.55, 0.5)
-	v_line.points = [Vector2(0, -20), Vector2(0, -6), Vector2(0, 6), Vector2(0, 20)]
+	v_line.width = 1.5
+	v_line.default_color = Color(0.9, 0.7, 0.4, 0.7)
+	v_line.points = [Vector2(0, -8), Vector2(0, 8)]
 	crosshair.add_child(v_line)
 	
-	var particles = CPUParticles2D.new()
-	particles.amount = 6
-	particles.lifetime = 1.5
-	particles.local_coords = false
-	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	particles.emission_sphere_radius = 10
-	particles.gravity = Vector2.ZERO
-	particles.initial_velocity_min = 5
-	particles.initial_velocity_max = 10
-	particles.scale_amount_min = 1.5
-	particles.scale_amount_max = 2.5
-	particles.color = Color(1.0, 0.9, 0.7, 0.3)
-	crosshair.add_child(particles)
-	
-	var tween = create_tween()
-	tween.set_loops(0)
-	tween.tween_property(pointer_bg, "scale", Vector2(1.3, 1.3), 1.2).set_trans(Tween.TRANS_SINE)
-	tween.tween_property(pointer_bg, "scale", Vector2(1.1, 1.1), 1.2).set_trans(Tween.TRANS_SINE)
+	# Center dot
+	var center_dot = ColorRect.new()
+	center_dot.color = Color(0.9, 0.7, 0.4, 0.9)
+	center_dot.size = Vector2(3, 3)
+	center_dot.position = Vector2(-1.5, -1.5)
+	crosshair.add_child(center_dot)
 	
 	var old_crosshair = get_node_or_null("Crosshair")
 	if old_crosshair and old_crosshair != crosshair:
 		old_crosshair.queue_free()
+
+func modify_existing_trajectory_pointer():
+	var trajectory = get_node_or_null("LauncherDirection")
+	if trajectory:
+		trajectory.width = 4.0  
+		trajectory.default_color = Color(0.85, 0.6, 0.3, 0.35) # Increased opacity
+		trajectory.begin_cap_mode = Line2D.LINE_CAP_ROUND
+		trajectory.end_cap_mode = Line2D.LINE_CAP_ROUND
+		trajectory.antialiased = true
+		
+		trajectory.points = [Vector2(0, 0), Vector2(0, -300)]
+		
+		var dot = trajectory.get_node_or_null("DirectionDot")
+		if dot:
+			dot.queue_free()
+			
+		var arrow = Polygon2D.new()
+		arrow.name = "ArrowHead"
+		arrow.color = Color(0.85, 0.6, 0.3, 0.35) # Matching opacity
+		arrow.polygon = [Vector2(0, -8), Vector2(6, 4), Vector2(-6, 4)]
+		arrow.position = Vector2(0, -300)
+		trajectory.add_child(arrow)
+		
+		# Set up animation tween for the line
+		var tween = create_tween()
+		tween.set_loops(0) # Infinite loops
+		tween.tween_property(trajectory, "width", 5.5, 1.0).set_trans(Tween.TRANS_SINE)
+		tween.tween_property(trajectory, "width", 4.0, 1.0).set_trans(Tween.TRANS_SINE)
+
+func update_trajectory_pointer(mouse_pos):
+	var trajectory_line = get_node_or_null("LauncherDirection")
+	if not trajectory_line:
+		return
+	
+	# Keep trajectory at launcher position, not at cursor
+	trajectory_line.global_position = global_position
+	
+	var distance_to_mouse = global_position.distance_to(mouse_pos)
+	
+	# Calculate direction to mouse
+	var direction_to_mouse = (mouse_pos - global_position).normalized()
+	
+	# Aim towards mouse direction
+	trajectory_line.rotation = direction_to_mouse.angle() + PI/2
+	
+	# Calculate a maximum distance that's shorter than actual mouse distance
+	var max_trajectory_length = max(0, distance_to_mouse - 150) # Keep 150px gap from cursor
+	max_trajectory_length = min(max_trajectory_length, 300) # Cap at 300px length
+	
+	# Set line points
+	trajectory_line.points = [Vector2(0, 0), Vector2(0, -max_trajectory_length)]
+	
+	var arrow = trajectory_line.get_node_or_null("ArrowHead")
+	if arrow:
+		arrow.position = Vector2(0, -max_trajectory_length)
+	
+	var min_width = 3.0
+	var max_width = 8.0
+	var distance_factor = clamp(distance_to_mouse / 300.0, 0.0, 1.0)
+	
+	# Don't directly set width here to allow animation tween to work
+	if arrow:
+		var min_arrow_size = 0.8
+		var max_arrow_size = 1.5
+		var arrow_scale = lerp(min_arrow_size, max_arrow_size, distance_factor)
+		arrow.scale = Vector2(arrow_scale, arrow_scale)
+
+func add_launch_effect():
+	var effect = CPUParticles2D.new()
+	effect.position = Vector2.ZERO
+	effect.amount = 16
+	effect.lifetime = 0.5
+	effect.explosiveness = 0.9
+	effect.direction = Vector2(0, -1)
+	effect.spread = 30
+	effect.gravity = Vector2(0, 150)
+	effect.initial_velocity_min = 70
+	effect.initial_velocity_max = 100
+	effect.scale_amount_min = 4
+	effect.scale_amount_max = 6
+	effect.color = Color(1.0, 0.7, 0.4)
+	effect.color_ramp = create_particle_gradient()
+	
+	add_child(effect)
+	effect.emitting = true
+	
+	await get_tree().create_timer(effect.lifetime + 0.1).timeout
+	effect.queue_free()
+
+func create_particle_gradient() -> Gradient:
+	var gradient = Gradient.new()
+	gradient.colors = [Color(0.9, 0.7, 0.5, 1), Color(0.85, 0.6, 0.4, 0)]
+	gradient.offsets = [0, 1]
+	return gradient
 
 func create_animated_ring(radius: float, color: Color, width: float) -> Node2D:
 	var ring = Node2D.new()
@@ -453,50 +487,6 @@ func create_random_sparkle():
 		tween.tween_property(sparkle, "scale", Vector2(0.1, 0.1), 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tween.parallel().tween_property(sprite, "modulate:a", 0.0, 0.4)
 		tween.tween_callback(sparkle.queue_free)
-
-func create_trajectory_dots():
-	if trajectory_marker == null:
-		trajectory_marker = Node2D.new()
-		trajectory_marker.name = "TrajectoryMarker"
-		add_child(trajectory_marker)
-	else:
-		for child in trajectory_marker.get_children():
-			child.queue_free()
-	
-	for i in range(MAX_DOTS):
-		var dot = Node2D.new()
-		dot.position = Vector2.ZERO
-		dot.visible = false
-		trajectory_marker.add_child(dot)
-		
-		var dot_sprite = Sprite2D.new()
-		
-		var dot_size = 16
-		var dot_image = Image.create(dot_size, dot_size, false, Image.FORMAT_RGBA8)
-		dot_image.fill(Color(0,0,0,0))
-		
-		var center = Vector2(dot_size / 2.0, dot_size / 2.0)
-		var radius = dot_size / 2.0
-		
-		for x in range(dot_size):
-			for y in range(dot_size):
-				var pos = Vector2(x, y)
-				var dist = pos.distance_to(center)
-				
-				if dist < radius:
-					var alpha = 1.0 - pow(dist / radius, 2)
-					var color = Color(1.0, 0.9, 0.7, alpha * 0.7)
-					dot_image.set_pixel(x, y, color)
-		
-		dot_sprite.texture = ImageTexture.create_from_image(dot_image)
-		dot_sprite.scale = Vector2(0.5, 0.5)
-		dot.add_child(dot_sprite)
-		
-		var tween = safe_tween(dot_sprite)
-		if tween:  
-			tween.set_loops(0)  
-			tween.tween_property(dot_sprite, "scale", Vector2(0.6, 0.6), 1.0).set_trans(Tween.TRANS_SINE)
-			tween.tween_property(dot_sprite, "scale", Vector2(0.4, 0.4), 1.0).set_trans(Tween.TRANS_SINE)
 
 func safe_tween(target_obj: Node = null) -> Tween:
 	var tween = create_tween()
