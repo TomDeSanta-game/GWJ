@@ -29,7 +29,7 @@ func _ready() -> void:
 
 func connect_signals() -> void:
 	SignalBus.shapes_popped.connect(_on_shapes_popped)
-	SignalBus.grid_game_over.connect(_on_game_over)
+	SignalBus.game_over_triggered.connect(_on_game_over)
 	SignalBus.score_changed.connect(update_score_display)
 
 func spawn_initial_enemies() -> void:
@@ -125,7 +125,7 @@ func _on_shapes_popped(count: int) -> void:
 	var points = int(10 * level_multiplier)
 	
 	score += points
-	SignalBus.score_changed.emit(score)
+	SignalBus.emit_score_changed(score)
 
 func update_score_display(new_score: int) -> void:
 	var score_display := get_node_or_null("ScoreDisplay")

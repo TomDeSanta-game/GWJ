@@ -20,6 +20,10 @@ config/icon="res://icon.png"
 SignalBus="*res://scripts/signal_bus.gd"
 SoundManager="*res://addons/sound_manager/sound_manager.gd"
 
+[debug]
+
+gdscript/warnings/unused_signal=0
+
 [display]
 
 window/size/mode=3
@@ -46,4 +50,3 @@ fire={
 
 textures/canvas_textures/default_texture_filter=2
 renderer/rendering_method="gl_compatibility"
-environment/defaults/default_clear_color=Color(0, 0, 0, 1)

@@ -1,22 +1,26 @@
 extends Node
 
-@warning_ignore("unused_signal")
 signal shape_collided(shape, collision_point)
-
-@warning_ignore("unused_signal")
 signal shape_launched(shape)
-
-@warning_ignore("unused_signal")
 signal shapes_popped(count)
-
-@warning_ignore("unused_signal")
 signal enemy_destroyed(enemy)
-
-@warning_ignore("unused_signal")
-signal grid_game_over
-
-@warning_ignore("unused_signal")
 signal game_over_triggered
+signal score_changed(new_score)
 
-@warning_ignore("unused_signal")
-signal score_changed(new_score)  
+func emit_shape_collided(shape, collision_point):
+    emit_signal("shape_collided", shape, collision_point)
+    
+func emit_shape_launched(shape):
+    emit_signal("shape_launched", shape)
+    
+func emit_shapes_popped(count):
+    emit_signal("shapes_popped", count)
+    
+func emit_enemy_destroyed(enemy):
+    emit_signal("enemy_destroyed", enemy)
+    
+func emit_game_over_triggered():
+    emit_signal("game_over_triggered")
+    
+func emit_score_changed(new_score):
+    emit_signal("score_changed", new_score)  

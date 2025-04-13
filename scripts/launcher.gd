@@ -31,8 +31,11 @@ func _ready():
 	create_ambient_glow()
 	create_trajectory_dots()
 	
+	var existing_shape = get_node_or_null("Shape")
+	if existing_shape:
+		existing_shape.queue_free()
+	
 	spawn_current_shape()
-	spawn_next_shape()
 
 func ensure_launcher_parts():
 	if not has_node("LauncherDirection"):
@@ -94,13 +97,16 @@ func launch_shape():
 	create_launch_flash()
 	
 	if current_shape is RigidBody2D:
+		var current_type = current_shape.shape_type
+		var current_color = current_shape.color
+		
 		remove_child(current_shape)
 		get_parent().add_child(current_shape)
 		current_shape.global_position = global_position
 		
 		current_shape.freeze = false
-		current_shape.gravity_scale = 0.0
-		current_shape.linear_damp = -1
+		current_shape.gravity_scale = 0.5  # Add some gravity for more interesting physics
+		current_shape.linear_damp = 0.3    # Add some damping for more controlled movement
 		
 		current_shape.apply_central_impulse(aim_direction * launch_speed)
 		if current_shape.has_method("set_launched"):
@@ -108,36 +114,41 @@ func launch_shape():
 		else:
 			current_shape.launched = true
 			
-		# Add a spin to make it more dynamic
 		current_shape.apply_torque_impulse(randf_range(-5000, 5000))
-	else:
-		print("Warning: current_shape is not a RigidBody2D")
 		
-	can_launch = false
-	cooldown_timer = cooldown_time
+		var old_shape = current_shape
+		current_shape = null
 		
-	play_launch_sound()
-	
-	var old_shape = current_shape
-	current_shape = null
-	
-	# Use a timer to delay spawning the new shape
-	var spawn_timer = Timer.new()
-	spawn_timer.wait_time = 0.1
-	spawn_timer.one_shot = true
-	add_child(spawn_timer)
-	spawn_timer.timeout.connect(func():
+		can_launch = false
+		cooldown_timer = cooldown_time
+		
 		spawn_current_shape()
 		
-		if next_shape:
-			next_shape.queue_free()
-		spawn_next_shape()
-		
-		spawn_timer.queue_free()
-	)
-	spawn_timer.start()
+		SignalBus.emit_shape_launched(old_shape)
+	else:
+		print("Warning: current_shape is not a RigidBody2D")
+
+func spawn_current_shape():
+	if current_shape:
+		current_shape.queue_free()
 	
-	SignalBus.emit_signal("shape_launched", old_shape)
+	var shape = shape_scene.instantiate()
+	
+	shape.shape_type = randi() % 3
+	shape.color = randi() % 6
+		
+	shape.position = Vector2.ZERO
+	shape.freeze = true
+	
+	var glow = ColorRect.new()
+	glow.color = Color(1, 0.9, 0.7, 0.2)
+	glow.size = Vector2(60, 60)
+	glow.position = Vector2(-30, -30)
+	glow.z_index = -1
+	shape.add_child(glow)
+	
+	current_shape = shape
+	add_child(current_shape)
 
 func update_trajectory():
 	var start_pos = global_position
@@ -167,33 +178,6 @@ func update_trajectory():
 				
 				if inner_point.get_child_count() > 0 and inner_point.get_child(0) != null:
 					inner_point.get_child(0).modulate = Color(1.0, 0.9 - fade * 0.2, 0.7 - fade * 0.3, alpha)
-
-func spawn_current_shape():
-	var shape = shape_scene.instantiate()
-	shape.shape_type = randi() % 5
-	
-	while next_shape and next_shape.shape_type == shape.shape_type:
-		shape.shape_type = randi() % 5 
-		
-	shape.global_position = global_position
-	shape.freeze = true
-	
-	current_shape = shape
-	add_child(current_shape)
-
-func spawn_next_shape():
-	var shape = shape_scene.instantiate()
-	shape.shape_type = randi() % 5  
-	
-	while current_shape and current_shape.shape_type == shape.shape_type:
-		shape.shape_type = randi() % 5
-	
-	shape.global_position = Vector2(60, 12)
-	shape.scale = Vector2(0.6, 0.6)
-	shape.freeze = true
-	
-	next_shape = shape
-	add_child(next_shape)
 
 func add_launch_effect():
 	var effect = CPUParticles2D.new()
@@ -293,70 +277,85 @@ func create_launcher_components():
 	launcher_inner.add_child(inner)
 
 func create_enhanced_crosshair():
-	var outer_glow = create_rounded_rect(Vector2.ZERO, 40, 40, 20, Color(0.85, 0.65, 0.45, 0.15))
-	add_child(outer_glow)
-	
 	var crosshair = Node2D.new()
 	crosshair.name = "Crosshair"
 	add_child(crosshair)
 	
-	var crosshair_size = 24
-	var crosshair_image = Image.create(crosshair_size, crosshair_size, false, Image.FORMAT_RGBA8)
-	crosshair_image.fill(Color(0,0,0,0))
+	var pointer_size = 40
+	var pointer_bg = create_rounded_rect(Vector2.ZERO, pointer_size, pointer_size, 20, Color(0.85, 0.7, 0.5, 0.15))
+	pointer_bg.scale = Vector2(1.2, 1.2)
+	crosshair.add_child(pointer_bg)
 	
-	var center = Vector2(crosshair_size / 2.0, crosshair_size / 2.0)
-	var outer_radius = crosshair_size / 2.0
-	var inner_radius = crosshair_size / 2.0 - 4
-	var center_dot_radius = 3
+	var outer_ring = create_animated_ring(14, Color(0.9, 0.75, 0.55, 0.5), 2.5)
+	outer_ring.position = Vector2.ZERO
+	crosshair.add_child(outer_ring)
 	
-	for x in range(crosshair_size):
-		for y in range(crosshair_size):
-			var pos = Vector2(x, y)
-			var dist = pos.distance_to(center)
-			
-			if dist < outer_radius:
-				var color_val = Color(0.9, 0.7, 0.5, 0)
-				
-				if dist > inner_radius:
-					var ring_factor = 1.0 - (dist - inner_radius) / (outer_radius - inner_radius)
-					color_val.a = 0.6 * ring_factor
-				elif dist < center_dot_radius:
-					var dot_factor = 1.0 - dist / center_dot_radius
-					color_val.a = 0.7 * dot_factor
-				
-				crosshair_image.set_pixel(x, y, color_val)
+	var inner_ring = create_animated_ring(8, Color(1.0, 0.85, 0.65, 0.7), 1.5)
+	inner_ring.position = Vector2.ZERO
+	crosshair.add_child(inner_ring)
 	
-	var crosshair_texture = ImageTexture.create_from_image(crosshair_image)
+	var center_dot = ColorRect.new()
+	center_dot.color = Color(1.0, 0.8, 0.6, 0.8)
+	center_dot.size = Vector2(4, 4)
+	center_dot.position = Vector2(-2, -2)
+	crosshair.add_child(center_dot)
 	
-	var sprite = Sprite2D.new()
-	sprite.texture = crosshair_texture
-	crosshair.add_child(sprite)
+	var h_line = Line2D.new()
+	h_line.width = 1.2
+	h_line.default_color = Color(0.9, 0.75, 0.55, 0.5)
+	h_line.points = [Vector2(-20, 0), Vector2(-6, 0), Vector2(6, 0), Vector2(20, 0)]
+	crosshair.add_child(h_line)
 	
-	var tween = safe_tween(outer_glow)
-	if tween:  
-		tween.set_loops(0)  
-		tween.tween_property(outer_glow, "scale", Vector2(1.2, 1.2), 1.3).set_trans(Tween.TRANS_SINE)
-		tween.tween_property(outer_glow, "scale", Vector2(0.9, 0.9), 1.3).set_trans(Tween.TRANS_SINE)
-	
-	var rot_tween = safe_tween(crosshair)
-	if rot_tween:  
-		rot_tween.set_loops(0)  
-		rot_tween.tween_property(crosshair, "rotation", PI / 5.0, 3.0).set_trans(Tween.TRANS_SINE)
-		rot_tween.tween_property(crosshair, "rotation", -PI / 5.0, 3.0).set_trans(Tween.TRANS_SINE)
+	var v_line = Line2D.new()
+	v_line.width = 1.2
+	v_line.default_color = Color(0.9, 0.75, 0.55, 0.5)
+	v_line.points = [Vector2(0, -20), Vector2(0, -6), Vector2(0, 6), Vector2(0, 20)]
+	crosshair.add_child(v_line)
 	
 	var particles = CPUParticles2D.new()
-	particles.amount = 10
-	particles.lifetime = 2.0
-	particles.local_coords = true
+	particles.amount = 6
+	particles.lifetime = 1.5
+	particles.local_coords = false
 	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-	particles.emission_sphere_radius = 5
+	particles.emission_sphere_radius = 10
 	particles.gravity = Vector2.ZERO
 	particles.initial_velocity_min = 5
 	particles.initial_velocity_max = 10
 	particles.scale_amount_min = 1.5
-	particles.scale_amount_max = 3
-	particles.color = Color(0.9, 0.7, 0.5, 0.5)
+	particles.scale_amount_max = 2.5
+	particles.color = Color(1.0, 0.9, 0.7, 0.3)
 	crosshair.add_child(particles)
+	
+	var tween = create_tween()
+	tween.set_loops(0)
+	tween.tween_property(pointer_bg, "scale", Vector2(1.3, 1.3), 1.2).set_trans(Tween.TRANS_SINE)
+	tween.tween_property(pointer_bg, "scale", Vector2(1.1, 1.1), 1.2).set_trans(Tween.TRANS_SINE)
+	
+	var old_crosshair = get_node_or_null("Crosshair")
+	if old_crosshair and old_crosshair != crosshair:
+		old_crosshair.queue_free()
+
+func create_animated_ring(radius: float, color: Color, width: float) -> Node2D:
+	var ring = Node2D.new()
+	
+	var circle = Line2D.new()
+	circle.width = width
+	circle.default_color = color
+	
+	var num_points = 24
+	var points = []
+	for i in range(num_points + 1):
+		var angle = 2 * PI * i / num_points
+		points.append(Vector2(cos(angle) * radius, sin(angle) * radius))
+	
+	circle.points = points
+	ring.add_child(circle)
+	
+	var tween = create_tween()
+	tween.set_loops(0)
+	tween.tween_property(ring, "rotation", 2*PI, 8.0).set_trans(Tween.TRANS_SINE)
+	
+	return ring
 
 func create_ambient_glow():
 	if not has_node("LauncherCore"):
@@ -499,37 +498,6 @@ func create_trajectory_dots():
 			tween.tween_property(dot_sprite, "scale", Vector2(0.6, 0.6), 1.0).set_trans(Tween.TRANS_SINE)
 			tween.tween_property(dot_sprite, "scale", Vector2(0.4, 0.4), 1.0).set_trans(Tween.TRANS_SINE)
 
-func play_launch_sound():
-	var player = AudioStreamPlayer.new()
-	player.volume_db = -8
-	player.pitch_scale = randf_range(0.9, 1.1)
-	
-	# Try to load the sound, but don't crash if it fails
-	var sound
-	
-	# First try to load from resources
-	if ResourceLoader.exists("res://assets/audio/effects/launch1.ogg"):
-		sound = load("res://assets/audio/effects/launch1.ogg")
-	else:
-		# Create a very simple beep as fallback
-		sound = AudioStreamGenerator.new()
-		sound.mix_rate = 44100
-		sound.buffer_length = 0.1  # 100ms buffer
-	
-	player.stream = sound
-	add_child(player)
-	player.play()
-	
-	# Create a timer to clean up the player after it's done
-	var timer = Timer.new()
-	timer.wait_time = 1.0
-	timer.one_shot = true
-	player.add_child(timer)
-	timer.start()
-	
-	# Connect the timeout signal to a function that will free the player
-	timer.timeout.connect(func(): player.queue_free())
-
 func safe_tween(target_obj: Node = null) -> Tween:
 	var tween = create_tween()
 	if tween == null:
@@ -551,15 +519,7 @@ func create_launcher_visuals():
 	shadows.modulate = Color(0, 0, 0, 0.15)
 	base.add_child(shadows)
 	
-	# Create a rounded launcher base with softer edges
 	create_rounded_launcher_base(base, shadows)
-	
-	var next_shape_label = Label.new()
-	next_shape_label.text = "NEXT"
-	next_shape_label.position = Vector2(35, 0)
-	next_shape_label.add_theme_font_size_override("font_size", 10)
-	next_shape_label.add_theme_color_override("font_color", Color(0.8, 0.6, 0.4))
-	base.add_child(next_shape_label)
 	
 	var core_glow = create_launcher_glow()
 	core_glow.name = "CoreGlow"
@@ -567,7 +527,6 @@ func create_launcher_visuals():
 	base.add_child(core_glow)
 
 func create_rounded_launcher_base(parent, shadow_parent):
-	# Create a soft rounded polygon for the base
 	var base_width = 50
 	var base_height = 30
 	var corner_radius = 12
@@ -579,7 +538,6 @@ func create_rounded_launcher_base(parent, shadow_parent):
 	var shadow_body = create_rounded_rect(Vector2.ZERO, base_width, base_height, corner_radius, Color(0.55, 0.4, 0.25, 0.8))
 	shadow_parent.add_child(shadow_body)
 	
-	# Add inner details with rounded corners
 	var inner_width = 30
 	var inner_height = 20
 	var inner_corner = 8
@@ -588,7 +546,6 @@ func create_rounded_launcher_base(parent, shadow_parent):
 	inner_body.z_index = 0
 	parent.add_child(inner_body)
 
-# Helper function to create a rounded rectangle
 func create_rounded_rect(pos: Vector2, width: float, height: float, corner_radius: float, color: Color) -> Node2D:
 	var container = Node2D.new()
 	container.position = pos
@@ -608,14 +565,11 @@ func create_rounded_rect(pos: Vector2, width: float, height: float, corner_radiu
 			var local_x = x - img_width / 2.0
 			var local_y = y - img_height / 2.0
 			
-			# Check if point is within the rounded rectangle
 			var in_rect = false
 			
-			# Center rectangle region (excluding corners)
 			if abs(local_x) <= (width / 2.0 - corner_radius) or abs(local_y) <= (height / 2.0 - corner_radius):
 				if abs(local_x) <= width / 2.0 and abs(local_y) <= height / 2.0:
 					in_rect = true
-			# Corner regions - use distance to corner center
 			else:
 				var corner_center_x = -width / 2.0 + corner_radius if local_x < 0 else width / 2.0 - corner_radius
 				var corner_center_y = -height / 2.0 + corner_radius if local_y < 0 else height / 2.0 - corner_radius
@@ -702,17 +656,12 @@ func launch_shape_at_position(target_pos: Vector2):
 	
 	spawn_current_shape()
 	
-	if next_shape:
-		next_shape.queue_free()
-	spawn_next_shape()
-	
 	cooldown_timer = cooldown_time
 	can_launch = false
 	
-	play_launch_sound()
 	add_launch_effect()
 	
-	SignalBus.emit_signal("shape_launched", current_shape)
+	SignalBus.emit_shape_launched(current_shape)
 
 func highlight_target_position():
 	var target_pos = get_target_position()
@@ -780,7 +729,7 @@ func end_game():
 		
 	game_over = true
 	
-	SignalBus.emit_signal("game_over")
+	SignalBus.emit_game_over_triggered()
 	
 	var all_shapes = get_tree().get_nodes_in_group("shapes")
 	for shape in all_shapes:
@@ -801,15 +750,18 @@ func _on_shape_bounced(body_node: Node):
 	if body_node is RigidBody2D and body_node.is_in_group("shapes") and body_node.launched:
 		body_node.launched = false
 		
+		# Instead of using the grid, just let the physics engine handle collisions
 		var bounce_force = 80.0
 		var bounce_dir = (body_node.global_position - global_position).normalized()
 		body_node.apply_central_impulse(bounce_dir * bounce_force)
+		
+		# Check for matching shapes nearby
+		check_for_matches(body_node)
 
 func create_launch_flash():
 	var flash = Sprite2D.new()
 	flash.z_index = 10
 	
-	# Create a simple white flash texture
 	var flash_size = 64
 	var flash_image = Image.create(flash_size, flash_size, false, Image.FORMAT_RGBA8)
 	flash_image.fill(Color(1, 1, 1, 0))
@@ -834,3 +786,54 @@ func create_launch_flash():
 	if tween:
 		tween.tween_property(flash, "modulate:a", 0.0, 0.3)
 		tween.tween_callback(flash.queue_free)
+
+func check_for_matches(shape_node):
+	var match_radius = 100.0  # Detection radius for matching
+	var matched_shapes = []
+	
+	# Find all shapes in the scene
+	var all_shapes = get_tree().get_nodes_in_group("shapes")
+	
+	# Check for shapes of the same color near the given shape
+	for other_shape in all_shapes:
+		if other_shape != shape_node and other_shape.color == shape_node.color:
+			var distance = shape_node.global_position.distance_to(other_shape.global_position)
+			if distance < match_radius:
+				matched_shapes.append(other_shape)
+	
+	# If we have at least 2 matching shapes (3 total including the original)
+	if matched_shapes.size() >= 2:
+		matched_shapes.append(shape_node)  # Add the original shape
+		
+		# Create a score effect
+		var score_value = matched_shapes.size() * 10
+		create_score_effect(shape_node.global_position, score_value)
+		
+		# Destroy the matched shapes
+		for matched_shape in matched_shapes:
+			if matched_shape.has_method("destroy"):
+				matched_shape.destroy()
+			else:
+				matched_shape.queue_free()
+		
+		# Emit signal for sound effects, etc.
+		SignalBus.emit_shapes_popped(matched_shapes.size())
+		
+		return true
+	
+	return false
+
+func create_score_effect(position, value):
+	var score_label = Label.new()
+	score_label.text = "+" + str(value)
+	score_label.add_theme_font_size_override("font_size", 24)
+	score_label.add_theme_color_override("font_color", Color(1, 0.9, 0.2))
+	
+	get_parent().add_child(score_label)
+	score_label.global_position = position
+	
+	# Add a tween for the score effect
+	var tween = create_tween()
+	tween.tween_property(score_label, "global_position", position + Vector2(0, -80), 1.0)
+	tween.parallel().tween_property(score_label, "modulate", Color(1, 1, 1, 0), 1.0)
+	tween.tween_callback(score_label.queue_free)
