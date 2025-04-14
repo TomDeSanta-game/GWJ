@@ -1,11 +1,9 @@
 extends Node2D  
 
-# Configuration
 @export var shape_scene: PackedScene  
 @export var launch_speed: float = 700.0  
-@export var cooldown_time: float = 0.5  
+@export var cooldown_time: float = 1.5  
 
-# Core state
 var current_shape: Node = null  
 var next_shape: Node = null  
 var can_launch: bool = true  
@@ -13,13 +11,11 @@ var cooldown_timer: float = 0.0
 var aim_direction: Vector2 = Vector2.UP  
 var game_over: bool = false
 
-# Components
 var launcher_core: Node2D
 var launcher_inner: Node2D
 var target_node: Node2D = null
 var target_particles: CPUParticles2D = null
 
-# Trajectory
 var trajectory_points = []
 var max_trajectory_points = 10  
 var crosshair_rotation = 0.0
@@ -52,14 +48,19 @@ func _process(delta):
 	update_aim()
 	update_visuals(delta)
 	
-	if Input.is_action_just_pressed("fire") and can_launch and current_shape != null:
-		launch_shape()
+	if Input.is_action_just_pressed("fire"):
+		if can_launch and current_shape != null:
+			launch_shape()
+		elif not can_launch:
+			show_cannot_fire_animation()
 
 func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			if can_launch and current_shape != null:
 				launch_shape()
+			elif not can_launch:
+				show_cannot_fire_animation()
 
 func update_cooldown(delta):
 	if not can_launch:
@@ -78,7 +79,6 @@ func update_aim():
 func update_visuals(delta: float = 0.0):
 	var mouse_pos = get_global_mouse_position()
 	
-	# Update crosshair
 	var crosshair = get_node_or_null("Crosshair")
 	if crosshair:
 		crosshair.global_position = mouse_pos
@@ -87,8 +87,13 @@ func update_visuals(delta: float = 0.0):
 		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else crosshair.get_child(0) if crosshair.get_child_count() > 0 else null
 		if inner_crosshair:
 			inner_crosshair.rotation = crosshair_rotation
+			
+			if not has_node("CannotFireAnimation") and not has_node("ReadyAnimation"):
+				if can_launch:
+					inner_crosshair.default_color = Color(0.9, 0.7, 0.4, 0.6)
+				else:
+					inner_crosshair.default_color = Color(0.5, 0.5, 0.5)
 	
-	# Update reticle
 	var reticle = get_node_or_null("LauncherReticle")
 	if reticle:
 		reticle.rotation = aim_direction.angle() + PI/2
@@ -100,20 +105,30 @@ func launch_shape():
 	add_launch_effect()
 	create_launch_flash()
 	
+	var crosshair = get_node_or_null("Crosshair")
+	if crosshair:
+		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
+		if inner_crosshair:
+			var original_scale = crosshair.scale
+			
+			var tween = create_tween()
+			tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.1)
+			tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.3, 1.0, 0.3), 0.1)
+			tween.tween_property(crosshair, "scale", original_scale, 0.2)
+			tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.9, 0.7, 0.4, 0.6), 0.2)
+	
 	if current_shape is RigidBody2D:
-		var current_type = current_shape.shape_type
-		var current_color = current_shape.color
-		
-		remove_child(current_shape)
-		get_parent().add_child(current_shape)
-		current_shape.global_position = global_position
+		var old_shape = current_shape
 		
 		current_shape.freeze = false
-		current_shape.gravity_scale = 0.5
-		current_shape.linear_damp = 0.3
+		current_shape.gravity_scale = 0.0
+		current_shape.linear_damp = 0.0  
+		current_shape.contact_monitor = true
+		current_shape.max_contacts_reported = 10
+		current_shape.lock_rotation = false
+		current_shape.add_to_group("shapes")
 		
-		# Ensure this is a stronger impulse to overcome potential separation forces
-		var launch_impulse = aim_direction * launch_speed * 2.0
+		var launch_impulse = aim_direction * launch_speed
 		current_shape.apply_central_impulse(launch_impulse)
 		
 		if current_shape.has_method("set_launched"):
@@ -121,11 +136,9 @@ func launch_shape():
 		else:
 			current_shape.launched = true
 			
-		current_shape.apply_torque_impulse(randf_range(-5000, 5000))
+		current_shape.apply_torque_impulse(randf_range(-10000, 10000))
 		
-		var old_shape = current_shape
 		current_shape = null
-		
 		can_launch = false
 		cooldown_timer = cooldown_time
 		
@@ -138,13 +151,11 @@ func launch_shape():
 func spawn_current_shape():
 	if current_shape:
 		current_shape.queue_free()
+		current_shape = null
 	
-	var shape = shape_scene.instantiate()
-	
+	var shape = shape_scene.instantiate() 
 	shape.shape_type = randi() % 3
 	shape.color = randi() % 6
-		
-	shape.position = Vector2.ZERO
 	shape.freeze = true
 	
 	var glow = ColorRect.new()
@@ -152,10 +163,12 @@ func spawn_current_shape():
 	glow.size = Vector2(60, 60)
 	glow.position = Vector2(-30, -30)
 	glow.z_index = -1
-	shape.add_child(glow)
+	shape.call_deferred("add_child", glow)
+	
+	get_parent().call_deferred("add_child", shape)
+	shape.position = position
 	
 	current_shape = shape
-	add_child(current_shape)
 
 func update_cooldown_visual():
 	var base = get_node_or_null("LauncherCore")
@@ -170,37 +183,29 @@ func update_cooldown_visual():
 		core_inner.scale = Vector2.ONE * (1.0 - cooldown_percent * 0.5) * initial_scale
 		
 		if cooldown_percent > 0:
-			core_inner.modulate = Color(1.0, 0.7 + 0.3 * (1.0 - cooldown_percent), 0.7 + 0.3 * (1.0 - cooldown_percent))
+			core_inner.modulate = Color(0.5, 0.5, 0.5)
 		else:
-			core_inner.modulate = Color(1.0, 1.0, 1.0)
-			
-			if not has_node("ReadyEffect"):
-				var ready_effect = CPUParticles2D.new()
-				ready_effect.name = "ReadyEffect"
-				ready_effect.position = Vector2.ZERO
-				ready_effect.amount = 20
-				ready_effect.lifetime = 0.5
-				ready_effect.explosiveness = 0.8
-				ready_effect.one_shot = true
-				ready_effect.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
-				ready_effect.emission_sphere_radius = 10.0
-				ready_effect.direction = Vector2(0, -1)
-				ready_effect.spread = 180
-				ready_effect.gravity = Vector2.ZERO
-				ready_effect.initial_velocity_min = 30
-				ready_effect.initial_velocity_max = 50
-				ready_effect.scale_amount_min = 3
-				ready_effect.scale_amount_max = 5
-				ready_effect.color = Color(1.0, 0.9, 0.7, 0.8)
-				add_child(ready_effect)
-				ready_effect.emitting = true
+			if not has_node("ReadyAnimation"):
+				var ready_node = Node2D.new()
+				ready_node.name = "ReadyAnimation"
+				add_child(ready_node)
 				
-				var timer = Timer.new()
-				timer.wait_time = 1.0
-				timer.one_shot = true
-				ready_effect.add_child(timer)
-				timer.start()
-				timer.timeout.connect(func(): ready_effect.queue_free())
+				var crosshair = get_node_or_null("Crosshair")
+				if crosshair:
+					var original_scale = crosshair.scale
+					var original_color
+					var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
+					if inner_crosshair:
+						original_color = inner_crosshair.default_color
+						
+						var tween = create_tween()
+						tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.2)
+						tween.parallel().tween_property(inner_crosshair, "default_color", Color(1.0, 0.9, 0.3), 0.2)
+						tween.tween_property(crosshair, "scale", original_scale, 0.3)
+						tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.9, 0.7, 0.4, 0.6), 0.3)
+						tween.tween_callback(func(): ready_node.queue_free())
+				
+			core_inner.modulate = Color(1.0, 1.0, 1.0)
 
 func create_launcher_components():
 	launcher_core = Node2D.new()
@@ -231,7 +236,6 @@ func create_enhanced_crosshair():
 	crosshair.name = "Crosshair"
 	add_child(crosshair)
 	
-	# Improved cursor with circular background
 	var bg = Polygon2D.new()
 	var num_points = 16
 	var radius = 12
@@ -243,7 +247,6 @@ func create_enhanced_crosshair():
 	bg.color = Color(0.9, 0.7, 0.4, 0.2)
 	crosshair.add_child(bg)
 	
-	# Outer ring
 	var outer_ring = Line2D.new()
 	outer_ring.width = 1.5
 	outer_ring.default_color = Color(0.9, 0.7, 0.4, 0.6)
@@ -254,7 +257,6 @@ func create_enhanced_crosshair():
 	outer_ring.points = ring_points
 	crosshair.add_child(outer_ring)
 	
-	# Improved crosshair lines
 	var h_line = Line2D.new()
 	h_line.width = 1.5
 	h_line.default_color = Color(0.9, 0.7, 0.4, 0.7)
@@ -267,7 +269,6 @@ func create_enhanced_crosshair():
 	v_line.points = [Vector2(0, -8), Vector2(0, 8)]
 	crosshair.add_child(v_line)
 	
-	# Center dot
 	var center_dot = ColorRect.new()
 	center_dot.color = Color(0.9, 0.7, 0.4, 0.9)
 	center_dot.size = Vector2(3, 3)
@@ -282,7 +283,7 @@ func modify_existing_trajectory_pointer():
 	var trajectory = get_node_or_null("LauncherDirection")
 	if trajectory:
 		trajectory.width = 4.0  
-		trajectory.default_color = Color(0.85, 0.6, 0.3, 0.35) # Increased opacity
+		trajectory.default_color = Color(0.85, 0.6, 0.3, 0.35)
 		trajectory.begin_cap_mode = Line2D.LINE_CAP_ROUND
 		trajectory.end_cap_mode = Line2D.LINE_CAP_ROUND
 		trajectory.antialiased = true
@@ -295,14 +296,13 @@ func modify_existing_trajectory_pointer():
 			
 		var arrow = Polygon2D.new()
 		arrow.name = "ArrowHead"
-		arrow.color = Color(0.85, 0.6, 0.3, 0.35) # Matching opacity
+		arrow.color = Color(0.85, 0.6, 0.3, 0.35)
 		arrow.polygon = [Vector2(0, -8), Vector2(6, 4), Vector2(-6, 4)]
 		arrow.position = Vector2(0, -300)
 		trajectory.add_child(arrow)
 		
-		# Set up animation tween for the line
 		var tween = create_tween()
-		tween.set_loops(0) # Infinite loops
+		tween.set_loops(0)
 		tween.tween_property(trajectory, "width", 5.5, 1.0).set_trans(Tween.TRANS_SINE)
 		tween.tween_property(trajectory, "width", 4.0, 1.0).set_trans(Tween.TRANS_SINE)
 
@@ -311,33 +311,25 @@ func update_trajectory_pointer(mouse_pos):
 	if not trajectory_line:
 		return
 	
-	# Keep trajectory at launcher position, not at cursor
 	trajectory_line.global_position = global_position
 	
 	var distance_to_mouse = global_position.distance_to(mouse_pos)
 	
-	# Calculate direction to mouse
 	var direction_to_mouse = (mouse_pos - global_position).normalized()
 	
-	# Aim towards mouse direction
 	trajectory_line.rotation = direction_to_mouse.angle() + PI/2
 	
-	# Calculate a maximum distance that's shorter than actual mouse distance
-	var max_trajectory_length = max(0, distance_to_mouse - 150) # Keep 150px gap from cursor
-	max_trajectory_length = min(max_trajectory_length, 300) # Cap at 300px length
+	var max_trajectory_length = max(0, distance_to_mouse - 150)
+	max_trajectory_length = min(max_trajectory_length, 300)
 	
-	# Set line points
 	trajectory_line.points = [Vector2(0, 0), Vector2(0, -max_trajectory_length)]
 	
 	var arrow = trajectory_line.get_node_or_null("ArrowHead")
 	if arrow:
 		arrow.position = Vector2(0, -max_trajectory_length)
-	
-	var min_width = 3.0
-	var max_width = 8.0
+
 	var distance_factor = clamp(distance_to_mouse / 300.0, 0.0, 1.0)
 	
-	# Don't directly set width here to allow animation tween to work
 	if arrow:
 		var min_arrow_size = 0.8
 		var max_arrow_size = 1.5
@@ -345,11 +337,9 @@ func update_trajectory_pointer(mouse_pos):
 		arrow.scale = Vector2(arrow_scale, arrow_scale)
 
 func add_launch_effect():
-	# Camera shake code removed
 	pass
 
 func create_launch_flash():
-	# Camera shake code removed
 	pass
 
 func create_particle_gradient() -> Gradient:
@@ -536,11 +526,8 @@ func create_rounded_rect(pos: Vector2, width: float, height: float, corner_radiu
 	var img = Image.create(img_width, img_height, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	
-	var center = Vector2(img_width / 2.0, img_height / 2.0)
-	
 	for x in range(img_width):
 		for y in range(img_height):
-			var point = Vector2(x, y)
 			var local_x = x - img_width / 2.0
 			var local_y = y - img_height / 2.0
 			
@@ -738,62 +725,78 @@ func _on_shape_bounced(body_node: Node):
 		check_for_matches(body_node)
 
 func check_for_matches(shape_node):
-	var match_radius = 100.0  # Detection radius for matching
+	if not shape_node or not shape_node.has_launched:
+		return
+	
 	var matched_shapes = []
+	var shapes = get_tree().get_nodes_in_group("shapes")
 	
-	# Find all shapes in the scene
-	var all_shapes = get_tree().get_nodes_in_group("shapes")
+	var match_radius = 100.0
 	
-	# Check for shapes of the same color near the given shape
-	for other_shape in all_shapes:
-		if other_shape != shape_node and other_shape.color == shape_node.color:
-			var distance = shape_node.global_position.distance_to(other_shape.global_position)
-			if distance < match_radius:
-				matched_shapes.append(other_shape)
-	
-	# If we have at least 2 matching shapes (3 total including the original)
+	for other_shape in shapes:
+		if other_shape == shape_node or not other_shape.has_launched:
+			continue
+			
+		if other_shape.color == shape_node.color and other_shape.global_position.distance_to(shape_node.global_position) <= match_radius:
+			matched_shapes.append(other_shape)
+			
 	if matched_shapes.size() >= 2:
-		matched_shapes.append(shape_node)  # Add the original shape
+		matched_shapes.append(shape_node)
 		
-		# Calculate the center of the cluster
 		var center = Vector2.ZERO
 		for shape in matched_shapes:
 			center += shape.global_position
 		center /= matched_shapes.size()
 		
-		# Set cluster position on all matched shapes
 		for shape in matched_shapes:
-			shape.set("cluster_position", center)
+			shape.cluster_position = center
 		
-		# Create a score effect
-		var score_value = matched_shapes.size() * 10
-		create_score_effect(shape_node.global_position, score_value)
+		var score_effect = create_score_effect(center, matched_shapes.size())
 		
-		# Destroy the matched shapes
-		for matched_shape in matched_shapes:
-			if matched_shape.has_method("destroy"):
-				matched_shape.destroy()
-			else:
-				matched_shape.queue_free()
+		for shape in matched_shapes:
+			shape.take_damage()
 		
-		# Emit signal for sound effects, etc.
 		SignalBus.emit_shapes_popped(matched_shapes.size())
 		
 		return true
-	
+		
 	return false
 
-func create_score_effect(position, value):
+func create_score_effect(position: Vector2, count: int):
+	var score_effect = Node2D.new()
+	score_effect.position = position
+	get_parent().add_child(score_effect)
+	
 	var score_label = Label.new()
-	score_label.text = "+" + str(value)
-	score_label.add_theme_font_size_override("font_size", 24)
-	score_label.add_theme_color_override("font_color", Color(1, 0.9, 0.2))
+	score_label.text = "+" + str(count * 10)
+	score_label.position = Vector2(-20, -20)
+	score_label.modulate = Color(1, 0.8, 0.3, 1)
+	score_effect.add_child(score_label)
 	
-	get_parent().add_child(score_label)
-	score_label.global_position = position
-	
-	# Add a tween for the score effect
 	var tween = create_tween()
-	tween.tween_property(score_label, "global_position", position + Vector2(0, -80), 1.0)
-	tween.parallel().tween_property(score_label, "modulate", Color(1, 1, 1, 0), 1.0)
-	tween.tween_callback(score_label.queue_free)
+	tween.set_parallel(true)
+	tween.tween_property(score_label, "position:y", -40, 1.0)
+	tween.tween_property(score_label, "modulate:a", 0, 1.0)
+	tween.chain().tween_callback(func(): score_effect.queue_free())
+	
+	return score_effect
+
+func show_cannot_fire_animation():
+	var crosshair = get_node_or_null("Crosshair")
+	if crosshair and not has_node("CannotFireAnimation"):
+		var cannot_fire = Node2D.new()
+		cannot_fire.name = "CannotFireAnimation"
+		add_child(cannot_fire)
+		
+		var original_scale = crosshair.scale
+		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
+		
+		if inner_crosshair:
+			var original_color = inner_crosshair.default_color
+			
+			var tween = create_tween()
+			tween.tween_property(crosshair, "scale", original_scale * 1.5, 0.15)
+			tween.parallel().tween_property(inner_crosshair, "default_color", Color(1.0, 0.3, 0.3), 0.15)
+			tween.tween_property(crosshair, "scale", original_scale, 0.3)
+			tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.5, 0.5, 0.5), 0.3)
+			tween.tween_callback(func(): cannot_fire.queue_free())

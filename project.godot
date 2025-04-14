@@ -19,6 +19,7 @@ config/icon="res://icon.png"
 
 SignalBus="*res://scripts/signal_bus.gd"
 SoundManager="*res://addons/sound_manager/sound_manager.gd"
+HighScoreManager="*res://scripts/high_score_manager.gd"
 
 [debug]
 
@@ -26,12 +27,13 @@ gdscript/warnings/unused_signal=0
 
 [display]
 
+window/size/mode=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/sound_manager/plugin.cfg")
+enabled=PackedStringArray("res://addons/script-ide/plugin.cfg", "res://addons/sound_manager/plugin.cfg")
 
 [input]
 
@@ -43,6 +45,7 @@ fire={
 
 [physics]
 
+2d/physics_engine="Rapier2D"
 2d/default_gravity=0.0
 
 [rendering]

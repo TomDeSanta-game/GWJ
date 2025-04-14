@@ -1,6 +1,37 @@
-[gd_scene load_steps=2 format=3 uid="uid://doaqvupbr68d8"]
+[gd_scene load_steps=6 format=3 uid="uid://doaqvupbr68d8"]
 
-[ext_resource type="Script" path="res://scripts/ui/store.gd" id="1_g5qnm"]
+[ext_resource type="Script" uid="uid://dtbntu6fh18t6" path="res://scripts/ui/store.gd" id="1_g5qnm"]
+[ext_resource type="FontFile" uid="uid://bvpkiixsiu7sf" path="res://assets/fonts/Futura/Futura Bold font.ttf" id="2_aytv7"]
+[ext_resource type="FontFile" uid="uid://cm38a4fghxt08" path="res://assets/fonts/Futura/futura medium bt.ttf" id="3_bsfl3"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+bg_color = Color(0.25, 0.25, 0.25, 0.8)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.8, 0.8, 0.3)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.301961)
+shadow_size = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
+bg_color = Color(0.35, 0.35, 0.35, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.9, 0.9, 0.9, 0.5)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 4
+shadow_offset = Vector2(0, 2)
 
 [node name="root" type="Control"]
 layout_mode = 3
@@ -15,7 +46,7 @@ script = ExtResource("1_g5qnm")
 layout_mode = 0
 anchor_right = 1.0
 anchor_bottom = 1.0
-color = Color(0, 0, 0, 1)
+color = Color(0.15, 0.15, 0.15, 1)
 
 [node name="StoreContainer" type="VBoxContainer" parent="."]
 layout_mode = 0
@@ -27,163 +58,236 @@ size_flags_vertical = 3
 [node name="HeaderMargin" type="MarginContainer" parent="StoreContainer"]
 layout_mode = 2
 size_flags_vertical = 0
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 20
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 20
 
 [node name="Header" type="HBoxContainer" parent="StoreContainer/HeaderMargin"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_constants/separation = 20
 
-[node name="StoreIcon" type="TextureRect" parent="StoreContainer/HeaderMargin/Header"]
+[node name="StoreTitle" type="Label" parent="StoreContainer/HeaderMargin/Header"]
 layout_mode = 2
-size_flags_vertical = 4
-expand_mode = 1
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 32
+text = "STORE"
 
-[node name="StoreLogo" type="ColorRect" parent="StoreContainer/HeaderMargin/Header"]
+[node name="HSpacer" type="Control" parent="StoreContainer/HeaderMargin/Header"]
 layout_mode = 2
-size_flags_vertical = 4
-color = Color(0, 0, 0, 1)
+size_flags_horizontal = 3
 
 [node name="CoinDisplay" type="HBoxContainer" parent="StoreContainer/HeaderMargin/Header"]
 layout_mode = 2
 size_flags_horizontal = 10
 size_flags_vertical = 4
+theme_override_constants/separation = 10
 
-[node name="CoinIcon" type="TextureRect" parent="StoreContainer/HeaderMargin/Header/CoinDisplay"]
+[node name="CoinLabel" type="Label" parent="StoreContainer/HeaderMargin/Header/CoinDisplay"]
 layout_mode = 2
-expand_mode = 1
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 24
+text = "COINS:"
 
-[node name="CoinAmount" type="ColorRect" parent="StoreContainer/HeaderMargin/Header/CoinDisplay"]
+[node name="CoinAmount" type="Label" parent="StoreContainer/HeaderMargin/Header/CoinDisplay"]
 layout_mode = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 24
+text = "0"
 
 [node name="CategoryMargin" type="MarginContainer" parent="StoreContainer"]
 layout_mode = 2
 size_flags_vertical = 0
-theme_override_constants/margin_left = 20
+theme_override_constants/margin_left = 30
 theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 10
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 20
 
-[node name="Categories" type="HBoxContainer" parent="StoreContainer/CategoryMargin"]
+[node name="CategoriesPanel" type="Panel" parent="StoreContainer/CategoryMargin"]
 layout_mode = 2
-theme_override_constants/separation = 15
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
 
-[node name="Category1" type="Button" parent="StoreContainer/CategoryMargin/Categories"]
-layout_mode = 2
-flat = true
-
-[node name="CategoryIcon1" type="ColorRect" parent="StoreContainer/CategoryMargin/Categories/Category1"]
+[node name="Categories" type="HBoxContainer" parent="StoreContainer/CategoryMargin/CategoriesPanel"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -30.0
-offset_top = -30.0
-offset_right = 30.0
-offset_bottom = 30.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 1)
+theme_override_constants/separation = 40
+alignment = 1
 
-[node name="Category2" type="Button" parent="StoreContainer/CategoryMargin/Categories"]
+[node name="Category1" type="Button" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories"]
+custom_minimum_size = Vector2(120, 50)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 flat = true
 
-[node name="CategoryIcon2" type="ColorRect" parent="StoreContainer/CategoryMargin/Categories/Category2"]
+[node name="CategoryLabel1" type="Label" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories/Category1"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -30.0
-offset_top = -30.0
-offset_right = 30.0
-offset_bottom = 30.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 0.9)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "SHAPES"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="Category3" type="Button" parent="StoreContainer/CategoryMargin/Categories"]
+[node name="Category2" type="Button" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories"]
+custom_minimum_size = Vector2(120, 50)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 flat = true
 
-[node name="CategoryIcon3" type="ColorRect" parent="StoreContainer/CategoryMargin/Categories/Category3"]
+[node name="CategoryLabel2" type="Label" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories/Category2"]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -30.0
-offset_top = -30.0
-offset_right = 30.0
-offset_bottom = 30.0
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "UPGRADES"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Category3" type="Button" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories"]
+custom_minimum_size = Vector2(120, 50)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+flat = true
+
+[node name="CategoryLabel3" type="Label" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories/Category3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "SPECIALS"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="ItemsMargin" type="MarginContainer" parent="StoreContainer"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 30
+
+[node name="ItemsPanel" type="Panel" parent="StoreContainer/ItemsMargin"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+
+[node name="PanelMargin" type="MarginContainer" parent="StoreContainer/ItemsMargin/ItemsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 10
+theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="ItemGrid" type="GridContainer" parent="StoreContainer/ItemsMargin"]
+[node name="ItemGrid" type="GridContainer" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin"]
 layout_mode = 2
-theme_override_constants/h_separation = 20
-theme_override_constants/v_separation = 20
+theme_override_constants/h_separation = 30
+theme_override_constants/v_separation = 30
 columns = 3
 
-[node name="StoreItem1" type="Panel" parent="StoreContainer/ItemsMargin/ItemGrid"]
+[node name="StoreItem1" type="Panel" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid"]
+custom_minimum_size = Vector2(180, 220)
 layout_mode = 2
+size_flags_horizontal = 6
+size_flags_vertical = 6
+theme_override_styles/panel = SubResource("StyleBoxFlat_2")
 
-[node name="ItemIcon" type="ColorRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem1"]
+[node name="ItemName" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -80.0
+offset_top = 15.0
+offset_right = 80.0
+offset_bottom = 45.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 20
+text = "Extra Speed"
+horizontal_alignment = 1
+
+[node name="ItemDescription" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -60.0
-offset_top = -70.0
-offset_right = 60.0
-offset_bottom = 50.0
+offset_left = -70.0
+offset_top = -30.0
+offset_right = 70.0
+offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
+theme_override_fonts/font = ExtResource("3_bsfl3")
+theme_override_font_sizes/font_size = 16
+text = "Increases launcher speed by 10%"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="PriceContainer" type="HBoxContainer" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem1"]
+[node name="PriceContainer" type="HBoxContainer" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1"]
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -60.0
-offset_top = -40.0
-offset_right = 60.0
-offset_bottom = -10.0
+offset_left = -70.0
+offset_top = -45.0
+offset_right = 70.0
+offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 0
 alignment = 1
 
-[node name="CoinIcon" type="TextureRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem1/PriceContainer"]
+[node name="PriceLabel" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1/PriceContainer"]
 layout_mode = 2
-expand_mode = 1
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "PRICE:"
 
-[node name="Price" type="ColorRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem1/PriceContainer"]
+[node name="PriceAmount" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1/PriceContainer"]
 layout_mode = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "100"
 
-[node name="BuyButton" type="Button" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem1"]
+[node name="BuyButton" type="Button" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1"]
 visible = false
 layout_mode = 1
 anchors_preset = 8
@@ -199,106 +303,81 @@ grow_horizontal = 2
 grow_vertical = 2
 icon_alignment = 1
 
-[node name="StoreItem2" type="Panel" parent="StoreContainer/ItemsMargin/ItemGrid"]
+[node name="StoreItem2" type="Panel" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid"]
+custom_minimum_size = Vector2(180, 220)
 layout_mode = 2
+size_flags_horizontal = 6
+size_flags_vertical = 6
+theme_override_styles/panel = SubResource("StyleBoxFlat_2")
 
-[node name="ItemIcon" type="ColorRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem2"]
+[node name="ItemName" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -80.0
+offset_top = 15.0
+offset_right = 80.0
+offset_bottom = 45.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 20
+text = "Triple Shot"
+horizontal_alignment = 1
+
+[node name="ItemDescription" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2"]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -60.0
-offset_top = -70.0
-offset_right = 60.0
-offset_bottom = 50.0
+offset_left = -70.0
+offset_top = -30.0
+offset_right = 70.0
+offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
+theme_override_fonts/font = ExtResource("3_bsfl3")
+theme_override_font_sizes/font_size = 16
+text = "Fire three shapes at once"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
 
-[node name="PriceContainer" type="HBoxContainer" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem2"]
+[node name="PriceContainer" type="HBoxContainer" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2"]
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -60.0
-offset_top = -40.0
-offset_right = 60.0
-offset_bottom = -10.0
+offset_left = -70.0
+offset_top = -45.0
+offset_right = 70.0
+offset_bottom = -15.0
 grow_horizontal = 2
 grow_vertical = 0
 alignment = 1
 
-[node name="CoinIcon" type="TextureRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem2/PriceContainer"]
+[node name="PriceLabel" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2/PriceContainer"]
 layout_mode = 2
-expand_mode = 1
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "PRICE:"
 
-[node name="Price" type="ColorRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem2/PriceContainer"]
+[node name="PriceAmount" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2/PriceContainer"]
 layout_mode = 2
-color = Color(0, 0, 0, 1)
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "150"
 
-[node name="StoreItem3" type="Panel" parent="StoreContainer/ItemsMargin/ItemGrid"]
-layout_mode = 2
-
-[node name="ItemIcon" type="ColorRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem3"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -60.0
-offset_top = -70.0
-offset_right = 60.0
-offset_bottom = 50.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0, 0, 0, 1)
-
-[node name="PriceContainer" type="HBoxContainer" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem3"]
-layout_mode = 1
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
-anchor_bottom = 1.0
-offset_left = -60.0
-offset_top = -40.0
-offset_right = 60.0
-offset_bottom = -10.0
-grow_horizontal = 2
-grow_vertical = 0
-alignment = 1
-
-[node name="CoinIcon" type="TextureRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem3/PriceContainer"]
-layout_mode = 2
-expand_mode = 1
-
-[node name="Price" type="ColorRect" parent="StoreContainer/ItemsMargin/ItemGrid/StoreItem3/PriceContainer"]
-layout_mode = 2
-color = Color(0, 0, 0, 1)
-
-[node name="FooterMargin" type="MarginContainer" parent="StoreContainer"]
-layout_mode = 2
-size_flags_vertical = 0
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 20
-
-[node name="Footer" type="HBoxContainer" parent="StoreContainer/FooterMargin"]
-layout_mode = 2
-size_flags_horizontal = 3
-alignment = 1
-
-[node name="BackButton" type="Button" parent="StoreContainer/FooterMargin/Footer"]
-layout_mode = 2
-icon_alignment = 1
-
-[node name="BackIcon" type="ColorRect" parent="StoreContainer/FooterMargin/Footer/BackButton"]
+[node name="BuyButton" type="Button" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2"]
+visible = false
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -311,4 +390,121 @@ offset_right = 50.0
 offset_bottom = 15.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0, 0, 0, 1)
+icon_alignment = 1
+
+[node name="StoreItem3" type="Panel" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid"]
+custom_minimum_size = Vector2(180, 220)
+layout_mode = 2
+size_flags_horizontal = 6
+size_flags_vertical = 6
+theme_override_styles/panel = SubResource("StyleBoxFlat_2")
+
+[node name="ItemName" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3"]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -80.0
+offset_top = 15.0
+offset_right = 80.0
+offset_bottom = 45.0
+grow_horizontal = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 20
+text = "Health Boost"
+horizontal_alignment = 1
+
+[node name="ItemDescription" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -70.0
+offset_top = -30.0
+offset_right = 70.0
+offset_bottom = 30.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
+theme_override_fonts/font = ExtResource("3_bsfl3")
+theme_override_font_sizes/font_size = 16
+text = "Survive one extra enemy hit"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 2
+
+[node name="PriceContainer" type="HBoxContainer" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3"]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -70.0
+offset_top = -45.0
+offset_right = 70.0
+offset_bottom = -15.0
+grow_horizontal = 2
+grow_vertical = 0
+alignment = 1
+
+[node name="PriceLabel" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3/PriceContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "PRICE:"
+
+[node name="PriceAmount" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3/PriceContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 18
+text = "200"
+
+[node name="BuyButton" type="Button" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3"]
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -50.0
+offset_top = -15.0
+offset_right = 50.0
+offset_bottom = 15.0
+grow_horizontal = 2
+grow_vertical = 2
+icon_alignment = 1
+
+[node name="FooterMargin" type="MarginContainer" parent="StoreContainer"]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/margin_left = 30
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 30
+theme_override_constants/margin_bottom = 30
+
+[node name="Footer" type="HBoxContainer" parent="StoreContainer/FooterMargin"]
+layout_mode = 2
+size_flags_horizontal = 3
+alignment = 1
+
+[node name="BackButton" type="Button" parent="StoreContainer/FooterMargin/Footer"]
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
+theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_font_sizes/font_size = 22
+theme_override_styles/hover = SubResource("StyleBoxFlat_2")
+theme_override_styles/normal = SubResource("StyleBoxFlat_1")
+text = "BACK TO GAME"
+flat = true
+icon_alignment = 1

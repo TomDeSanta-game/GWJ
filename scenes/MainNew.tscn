@@ -1,8 +1,11 @@
-[gd_scene load_steps=9 format=3 uid="uid://doaqvupbr68d8"]
+[gd_scene load_steps=14 format=3 uid="uid://doaqvupbr68d8"]
 
 [ext_resource type="Script" uid="uid://cbhy7p3anenyq" path="res://scripts/game_controller.gd" id="1_k31jy"]
 [ext_resource type="Script" uid="uid://bfaltgio4e5fa" path="res://scripts/launcher.gd" id="3_1e6a1"]
 [ext_resource type="PackedScene" uid="uid://ckrjns83yjgt3" path="res://scenes/Shape.tscn" id="4_77nxu"]
+[ext_resource type="PackedScene" uid="uid://doaqvupbr68d8" path="res://scenes/Store.tscn" id="4_u7byf"]
+[ext_resource type="PackedScene" uid="uid://c3d8e4p6xn2co" path="res://scenes/high_score_panel.tscn" id="5_r3w1c"]
+[ext_resource type="Script" uid="uid://bihk7yq2mlwx1" path="res://scripts/icon_animation.gd" id="6_tfw1n"]
 
 [sub_resource type="Gradient" id="Gradient_jc2gh"]
 offsets = PackedFloat32Array(0, 0.4, 0.8, 1)
@@ -56,9 +59,16 @@ shadow_color = Color(0, 0, 0, 0.1)
 shadow_size = 3
 shadow_offset = Vector2(0, 2)
 
+[sub_resource type="SystemFont" id="SystemFont_yuxn5"]
+font_weight = 700
+
+[sub_resource type="SystemFont" id="SystemFont_kpgx2"]
+font_weight = 700
+
 [node name="Main" type="Node2D"]
 script = ExtResource("1_k31jy")
 shape_scene = ExtResource("4_77nxu")
+high_score_panel_scene = ExtResource("5_r3w1c")
 
 [node name="Background" type="TextureRect" parent="."]
 offset_left = -398.0
@@ -67,6 +77,13 @@ offset_right = 1038.0
 offset_bottom = 938.0
 texture = SubResource("GradientTexture2D_e32x8")
 stretch_mode = 1
+
+[node name="AnimationIcons" type="Node" parent="."]
+script = ExtResource("6_tfw1n")
+
+[node name="IconAnimationTimer" type="Timer" parent="AnimationIcons"]
+wait_time = 3.0
+autostart = true
 
 [node name="GameTitle" type="Node2D" parent="."]
 position = Vector2(320, 30)
@@ -136,7 +153,7 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_qxn7u")
 position = Vector2(320, 720)
 script = ExtResource("3_1e6a1")
 shape_scene = ExtResource("4_77nxu")
-launch_speed = 800.0
+launch_speed = 1200.0
 
 [node name="LauncherGlow" type="ColorRect" parent="Launcher"]
 offset_left = -50.0
@@ -197,9 +214,6 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_qxn7u")
 
-[node name="Shape" parent="Launcher" instance=ExtResource("4_77nxu")]
-visible = false
-
 [node name="LauncherDirection" type="Line2D" parent="Launcher"]
 points = PackedVector2Array(0, -20, 0, -120)
 width = 5.0
@@ -232,12 +246,137 @@ offset_bottom = 15.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_pwv7i")
 
 [node name="ScoreIcon" type="Node2D" parent="ScoreDisplay"]
-position = Vector2(-220, 0)
+position = Vector2(-180, 0)
 scale = Vector2(0.5, 0.5)
 
 [node name="Star1" type="Polygon2D" parent="ScoreDisplay/ScoreIcon"]
 color = Color(1, 0.85, 0.4, 0.9)
 polygon = PackedVector2Array(0, -20, 4, -8, 16, -6, 8, 2, 10, 16, 0, 10, -10, 16, -8, 2, -16, -6, -4, -8)
+
+[node name="ScoreLabel" type="Label" parent="ScoreDisplay"]
+offset_left = -160.0
+offset_top = -13.0
+offset_right = 190.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.4, 0.5, 0.6, 0.5)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/shadow_outline_size = 1
+theme_override_fonts/font = SubResource("SystemFont_yuxn5")
+theme_override_font_sizes/font_size = 16
+text = "Score: 0"
+vertical_alignment = 1
+
+[node name="HighScoreDisplay" type="Node2D" parent="."]
+position = Vector2(-294, 15)
+
+[node name="HighScoreBackground" type="Panel" parent="HighScoreDisplay"]
+offset_left = -100.0
+offset_top = -15.0
+offset_right = 100.0
+offset_bottom = 15.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_8v3ys")
+
+[node name="CrownIcon" type="Polygon2D" parent="HighScoreDisplay"]
+position = Vector2(-80, 0)
+scale = Vector2(0.5, 0.5)
+color = Color(1, 0.9, 0.4, 0.9)
+polygon = PackedVector2Array(0, -10, 6, -2, 12, -8, 8, 2, -8, 2, -12, -8, -6, -2)
+
+[node name="HighScoreLabel" type="Label" parent="HighScoreDisplay"]
+offset_left = -60.0
+offset_top = -13.0
+offset_right = 90.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(1, 0.9, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0.6, 0.5, 0.2, 0.5)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/shadow_outline_size = 1
+theme_override_fonts/font = SubResource("SystemFont_yuxn5")
+theme_override_font_sizes/font_size = 16
+text = "High Score: 0"
+vertical_alignment = 1
+
+[node name="CurrentScoreDisplay" type="Node2D" parent="."]
+position = Vector2(-294, 50)
+
+[node name="CurrentScoreBackground" type="Panel" parent="CurrentScoreDisplay"]
+offset_left = -100.0
+offset_top = -15.0
+offset_right = 100.0
+offset_bottom = 15.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_8v3ys")
+
+[node name="ScoreIcon" type="Polygon2D" parent="CurrentScoreDisplay"]
+position = Vector2(-80, 0)
+scale = Vector2(0.5, 0.5)
+color = Color(1, 0.85, 0.4, 0.9)
+polygon = PackedVector2Array(0, -20, 4, -8, 16, -6, 8, 2, 10, 16, 0, 10, -10, 16, -8, 2, -16, -6, -4, -8)
+
+[node name="CurrentScoreLabel" type="Label" parent="CurrentScoreDisplay"]
+offset_left = -60.0
+offset_top = -13.0
+offset_right = 90.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.4, 0.5, 0.6, 0.5)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/shadow_outline_size = 1
+theme_override_fonts/font = SubResource("SystemFont_yuxn5")
+theme_override_font_sizes/font_size = 16
+text = "Score: 0"
+vertical_alignment = 1
+
+[node name="MoneyDisplay" type="Node2D" parent="."]
+position = Vector2(-294, 84)
+
+[node name="MoneyBackground" type="Panel" parent="MoneyDisplay"]
+offset_left = -100.0
+offset_top = -15.0
+offset_right = 100.0
+offset_bottom = 15.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_8v3ys")
+
+[node name="CoinIcon" type="Node2D" parent="MoneyDisplay"]
+position = Vector2(-80, 0)
+scale = Vector2(0.5, 0.5)
+
+[node name="CoinOuter" type="Polygon2D" parent="MoneyDisplay/CoinIcon"]
+color = Color(1, 0.85, 0.2, 0.9)
+polygon = PackedVector2Array(0, -12, 7, -10, 11, -5, 11, 5, 7, 10, 0, 12, -7, 10, -11, 5, -11, -5, -7, -10)
+
+[node name="CoinInner" type="Polygon2D" parent="MoneyDisplay/CoinIcon"]
+scale = Vector2(0.7, 0.7)
+color = Color(1, 0.95, 0.5, 0.9)
+polygon = PackedVector2Array(0, -12, 7, -10, 11, -5, 11, 5, 7, 10, 0, 12, -7, 10, -11, 5, -11, -5, -7, -10)
+
+[node name="CoinShine" type="Polygon2D" parent="MoneyDisplay/CoinIcon"]
+position = Vector2(-3, -3)
+scale = Vector2(0.3, 0.3)
+color = Color(1, 1, 1, 0.7)
+polygon = PackedVector2Array(0, -12, 7, -10, 11, -5, 11, 5, 7, 10, 0, 12, -7, 10, -11, 5, -11, -5, -7, -10)
+
+[node name="MoneyLabel" type="Label" parent="MoneyDisplay"]
+offset_left = -60.0
+offset_top = -13.0
+offset_right = 90.0
+offset_bottom = 13.0
+theme_override_colors/font_color = Color(0.4, 0.8, 0.4, 1)
+theme_override_colors/font_shadow_color = Color(0.2, 0.4, 0.2, 0.5)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+theme_override_constants/shadow_outline_size = 1
+theme_override_fonts/font = SubResource("SystemFont_kpgx2")
+theme_override_font_sizes/font_size = 16
+text = "Money: $0"
+vertical_alignment = 1
+
+[node name="Store" parent="." instance=ExtResource("4_u7byf")]
+visible = false
+scale = Vector2(2, 2)
 
 [node name="MainCamera" type="Camera2D" parent="."]
 position = Vector2(320, 400)
@@ -246,3 +385,5 @@ position_smoothing_enabled = true
 position_smoothing_speed = 4.0
 editor_draw_limits = true
 editor_draw_drag_margin = true
+
+[connection signal="timeout" from="AnimationIcons/IconAnimationTimer" to="AnimationIcons" method="_on_icon_animation_timer_timeout"]
