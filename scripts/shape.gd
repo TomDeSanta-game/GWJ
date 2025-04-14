@@ -20,6 +20,7 @@ var rotation_tween: Tween = null
 var wobble_amplitude: float = 0.0
 var base_scale: Vector2 = Vector2(1, 1)
 var is_floating: bool = false
+var cluster_position: Vector2 = Vector2.ZERO  # Position of cluster center if part of a match
 
 var outline: Node2D
 
@@ -398,7 +399,34 @@ func destroy():
 	if has_node("ShapeVisual"):
 		var visual = get_node("ShapeVisual")
 		var tween = create_tween()
-		tween.tween_property(visual, "modulate:a", 0.0, 0.3)
+		
+		# More dramatic destruction effect for shapes in clusters
+		if cluster_position != Vector2.ZERO:
+			# Create trail effect pointing away from cluster center
+			var direction = (global_position - cluster_position).normalized()
+			var trail = CPUParticles2D.new()
+			trail.emitting = true
+			trail.amount = 15
+			trail.lifetime = 0.3
+			trail.explosiveness = 0.8
+			trail.direction = direction
+			trail.spread = 30
+			trail.gravity = Vector2.ZERO
+			trail.initial_velocity_min = 80
+			trail.initial_velocity_max = 150
+			trail.scale_amount_min = 2
+			trail.scale_amount_max = 5
+			trail.color = get_color_from_enum(color)
+			add_child(trail)
+			
+			# More dramatic visual effect
+			var explosion_scale = 1.3
+			tween.tween_property(visual, "scale", Vector2(explosion_scale, explosion_scale), 0.1)
+			tween.tween_property(visual, "scale", Vector2(0.1, 0.1), 0.2)
+			tween.parallel().tween_property(visual, "modulate:a", 0.0, 0.2)
+		else:
+			# Standard fade-out for non-cluster shapes
+			tween.tween_property(visual, "modulate:a", 0.0, 0.3)
 	
 	await get_tree().create_timer(0.3).timeout
 	

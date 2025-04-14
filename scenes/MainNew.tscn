@@ -1,12 +1,12 @@
-[gd_scene load_steps=10 format=3 uid="uid://doaqvupbr68d8"]
+[gd_scene load_steps=9 format=3 uid="uid://doaqvupbr68d8"]
 
 [ext_resource type="Script" uid="uid://cbhy7p3anenyq" path="res://scripts/game_controller.gd" id="1_k31jy"]
 [ext_resource type="Script" uid="uid://bfaltgio4e5fa" path="res://scripts/launcher.gd" id="3_1e6a1"]
 [ext_resource type="PackedScene" uid="uid://ckrjns83yjgt3" path="res://scenes/Shape.tscn" id="4_77nxu"]
 
 [sub_resource type="Gradient" id="Gradient_jc2gh"]
-offsets = PackedFloat32Array(0, 0.5, 1)
-colors = PackedColorArray(0.156863, 0.219608, 0.392157, 1, 0.286275, 0.411765, 0.619608, 1, 0.4, 0.65, 0.9, 1)
+offsets = PackedFloat32Array(0, 0.4, 0.8, 1)
+colors = PackedColorArray(0.156863, 0.219608, 0.392157, 1, 0.286275, 0.411765, 0.619608, 1, 0.4, 0.65, 0.9, 1, 0.6, 0.8, 1, 1)
 
 [sub_resource type="GradientTexture2D" id="GradientTexture2D_e32x8"]
 gradient = SubResource("Gradient_jc2gh")
@@ -15,37 +15,46 @@ height = 1200
 fill_to = Vector2(0, 1)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qxn7u"]
-bg_color = Color(0.188235, 0.25098, 0.392157, 0.45098)
+bg_color = Color(0.188235, 0.25098, 0.392157, 0.65)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.9, 1, 0.15)
 corner_radius_top_left = 20
 corner_radius_top_right = 20
 corner_radius_bottom_right = 20
 corner_radius_bottom_left = 20
-shadow_color = Color(0, 0, 0, 0.2)
-shadow_size = 6
-shadow_offset = Vector2(0, 3)
-
-[sub_resource type="Gradient" id="Gradient_q4m2c"]
-offsets = PackedFloat32Array(0, 0.3, 0.7, 1)
-colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 0.2, 1, 1, 1, 0.2, 1, 1, 1, 0)
+shadow_color = Color(0, 0, 0, 0.25)
+shadow_size = 8
+shadow_offset = Vector2(0, 4)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8v3ys"]
-bg_color = Color(0.188235, 0.188235, 0.243137, 0.498039)
+bg_color = Color(0.188235, 0.25098, 0.392157, 0.65)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.9, 1, 0.15)
 corner_radius_top_left = 12
 corner_radius_top_right = 12
 corner_radius_bottom_right = 12
 corner_radius_bottom_left = 12
 shadow_color = Color(0, 0, 0, 0.2)
-shadow_size = 4
-shadow_offset = Vector2(0, 2)
+shadow_size = 6
+shadow_offset = Vector2(0, 3)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_pwv7i"]
-bg_color = Color(0.4, 0.6, 0.9, 0.7)
+bg_color = Color(0.6, 0.8, 1, 0.8)
+border_width_right = 2
+border_color = Color(1, 1, 1, 0.3)
 corner_radius_top_left = 8
 corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 shadow_color = Color(0, 0, 0, 0.1)
-shadow_size = 2
+shadow_size = 3
+shadow_offset = Vector2(0, 2)
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_k31jy")
@@ -58,39 +67,6 @@ offset_right = 1038.0
 offset_bottom = 938.0
 texture = SubResource("GradientTexture2D_e32x8")
 stretch_mode = 1
-
-[node name="BackgroundVignette" type="ColorRect" parent="."]
-visible = false
-offset_left = -10.0
-offset_top = -10.0
-offset_right = 650.0
-offset_bottom = 810.0
-mouse_filter = 2
-color = Color(0, 0, 0, 0.25)
-
-[node name="VignetteShader" type="ColorRect" parent="BackgroundVignette"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-color = Color(0, 0, 0, 0)
-
-[node name="CloudParticles" type="CPUParticles2D" parent="."]
-position = Vector2(320, 400)
-lifetime = 20.0
-preprocess = 10.0
-speed_scale = 0.2
-randomness = 0.5
-lifetime_randomness = 0.3
-emission_shape = 3
-emission_rect_extents = Vector2(400, 400)
-gravity = Vector2(10, 0)
-scale_amount_min = 80.0
-scale_amount_max = 160.0
-color = Color(1, 1, 1, 0.06)
 
 [node name="GameTitle" type="Node2D" parent="."]
 position = Vector2(320, 30)
@@ -110,7 +86,7 @@ offset_left = -120.0
 offset_top = -25.0
 offset_right = -70.0
 offset_bottom = 25.0
-color = Color(0.7, 0.3, 0.4, 0.9)
+color = Color(0.9, 0.4, 0.4, 0.9)
 metadata/_edit_group_ = true
 
 [node name="CircleMask" type="Panel" parent="GameTitle/TitleIcon/Circle"]
@@ -127,7 +103,7 @@ offset_left = -30.0
 offset_top = -25.0
 offset_right = 30.0
 offset_bottom = 25.0
-color = Color(0.3, 0.6, 0.8, 0.9)
+color = Color(0.4, 0.7, 0.9, 0.9)
 metadata/_edit_group_ = true
 
 [node name="SquareMask" type="Panel" parent="GameTitle/TitleIcon/Square"]
@@ -144,7 +120,7 @@ offset_left = 70.0
 offset_top = -25.0
 offset_right = 120.0
 offset_bottom = 25.0
-color = Color(0.4, 0.7, 0.4, 0.9)
+color = Color(0.5, 0.9, 0.5, 0.9)
 metadata/_edit_group_ = true
 
 [node name="TriangleMask" type="Panel" parent="GameTitle/TitleIcon/Triangle"]
@@ -156,42 +132,11 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_qxn7u")
 
-[node name="TitleShimmer" type="CPUParticles2D" parent="GameTitle"]
-amount = 16
-lifetime = 3.0
-preprocess = 1.0
-speed_scale = 0.5
-emission_shape = 3
-emission_rect_extents = Vector2(300, 30)
-direction = Vector2(1, 0.3)
-spread = 20.0
-gravity = Vector2(0, 0)
-initial_velocity_min = 30.0
-initial_velocity_max = 50.0
-scale_amount_min = 2.0
-scale_amount_max = 5.0
-color = Color(1, 1, 1, 0.15)
-color_ramp = SubResource("Gradient_q4m2c")
-
 [node name="Launcher" type="Node2D" parent="."]
 position = Vector2(320, 720)
 script = ExtResource("3_1e6a1")
 shape_scene = ExtResource("4_77nxu")
 launch_speed = 800.0
-
-[node name="LauncherPulse" type="CPUParticles2D" parent="Launcher"]
-amount = 24
-lifetime = 1.5
-local_coords = true
-emission_shape = 1
-emission_sphere_radius = 35.0
-spread = 180.0
-gravity = Vector2(0, 0)
-initial_velocity_min = 5.0
-initial_velocity_max = 20.0
-scale_amount_min = 2.0
-scale_amount_max = 5.0
-color = Color(0.6, 0.8, 1, 0.25)
 
 [node name="LauncherGlow" type="ColorRect" parent="Launcher"]
 offset_left = -50.0
@@ -224,7 +169,7 @@ offset_top = -30.0
 offset_right = 30.0
 offset_bottom = 30.0
 pivot_offset = Vector2(30, 30)
-color = Color(0.3, 0.4, 0.6, 1)
+color = Color(0.35, 0.45, 0.65, 1)
 
 [node name="LauncherCoreMask" type="Panel" parent="Launcher/LauncherCore"]
 layout_mode = 1
@@ -241,7 +186,7 @@ offset_top = -20.0
 offset_right = 20.0
 offset_bottom = 20.0
 pivot_offset = Vector2(20, 20)
-color = Color(0.4, 0.5, 0.7, 1)
+color = Color(0.45, 0.6, 0.8, 1)
 
 [node name="LauncherInnerMask" type="Panel" parent="Launcher/LauncherInner"]
 layout_mode = 1
@@ -260,24 +205,13 @@ begin_cap_mode = 2
 end_cap_mode = 2
 antialiased = true
 
-[node name="DirectionDot" type="CPUParticles2D" parent="Launcher/LauncherDirection"]
-position = Vector2(0, -120)
-amount = 1
-lifetime = 0.5
-emission_shape = 1
-emission_sphere_radius = 1.0
-gravity = Vector2(0, 0)
-scale_amount_min = 8.0
-scale_amount_max = 10.0
-color = Color(0.8, 0.9, 1, 0.5)
-
 [node name="Shape" parent="Launcher" instance=ExtResource("4_77nxu")]
 visible = false
 
 [node name="LauncherReticle" type="Line2D" parent="Launcher"]
 points = PackedVector2Array(-15, -15, 15, 15, 0, 0, 15, -15, -15, 15)
 width = 2.0
-default_color = Color(0.7, 0.9, 1, 0.6)
+default_color = Color(0.8, 0.95, 1, 0.7)
 antialiased = true
 
 [node name="ScoreDisplay" type="Node2D" parent="."]
@@ -302,16 +236,8 @@ position = Vector2(-220, 0)
 scale = Vector2(0.5, 0.5)
 
 [node name="Star1" type="Polygon2D" parent="ScoreDisplay/ScoreIcon"]
-color = Color(1, 0.8, 0.3, 0.9)
+color = Color(1, 0.85, 0.4, 0.9)
 polygon = PackedVector2Array(0, -20, 4, -8, 16, -6, 8, 2, 10, 16, 0, 10, -10, 16, -8, 2, -16, -6, -4, -8)
-
-[node name="ScoreParticles" type="CPUParticles2D" parent="ScoreDisplay"]
-lifetime = 2.0
-emission_shape = 3
-emission_rect_extents = Vector2(200, 10)
-gravity = Vector2(0, 0)
-scale_amount_max = 3.0
-color = Color(0.6, 0.8, 1, 0.15)
 
 [node name="MainCamera" type="Camera2D" parent="."]
 position = Vector2(320, 400)

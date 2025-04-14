@@ -795,6 +795,16 @@ func check_for_matches(shape_node):
 	if matched_shapes.size() >= 2:
 		matched_shapes.append(shape_node)  # Add the original shape
 		
+		# Calculate the center of the cluster
+		var center = Vector2.ZERO
+		for shape in matched_shapes:
+			center += shape.global_position
+		center /= matched_shapes.size()
+		
+		# Set cluster position on all matched shapes
+		for shape in matched_shapes:
+			shape.set("cluster_position", center)
+		
 		# Create a score effect
 		var score_value = matched_shapes.size() * 10
 		create_score_effect(shape_node.global_position, score_value)
