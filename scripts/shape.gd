@@ -21,6 +21,8 @@ var wobble_amplitude: float = 0.0
 var base_scale: Vector2 = Vector2(1, 1)
 var is_floating: bool = false
 var cluster_position: Vector2 = Vector2.ZERO  # Position of cluster center if part of a match
+var separation_force: float = 150.0  # Significantly increased from 80.0
+var min_separation_distance: float = 120.0  # Significantly increased from 70.0
 
 var outline: Node2D
 
@@ -31,6 +33,9 @@ func _ready():
 	initialize_shape()
 	preload_sounds()
 	connect_signals()
+	
+	# Add to shapes group for separation logic
+	add_to_group("shapes")
 	
 	# Initialize rotation properties with stronger values
 	rotation_speed = randf_range(0.8, 1.5)  # Faster rotation speed
@@ -53,6 +58,10 @@ func _process(delta: float):
 	# Apply rotation effect for floating shapes - simplified condition and added null check
 	if outline != null and (is_floating or has_launched):
 		outline.rotation += rotation_speed * rotation_direction * delta
+
+func _physics_process(delta: float):
+	if !is_enemy and !freeze:
+		apply_separation_forces()
 
 func move_towards_target(delta: float):
 	var direction = (target_position - global_position).normalized()
@@ -283,7 +292,6 @@ func _on_body_entered(body):
 			print("Player shape hit enemy!")
 			if body.has_method("take_damage"):
 				body.take_damage()
-				play_hit_effect(body.global_position)
 		
 		elif not is_enemy:
 			if has_signal("shape_collided"):
@@ -296,43 +304,8 @@ func _on_body_entered(body):
 			take_damage()
 
 func play_hit_effect(hit_position):
-	var particles = CPUParticles2D.new()
-	get_tree().root.add_child(particles)
-	particles.position = hit_position
-	particles.amount = 15
-	particles.lifetime = 0.4
-	particles.explosiveness = 0.8
-	particles.spread = 180
-	particles.gravity = Vector2(0, 150)
-	particles.initial_velocity_min = 40
-	particles.initial_velocity_max = 100
-	particles.scale_amount_min = 2.0
-	particles.scale_amount_max = 2.0
-	particles.color = get_color_from_enum(shape_type).lightened(0.2)
-	
-	var flash = Sprite2D.new()
-	get_tree().root.add_child(flash)
-	flash.position = hit_position
-	
-	var flash_img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	flash_img.fill(Color(1, 1, 1, 1))
-	flash.texture = ImageTexture.create_from_image(flash_img)
-	flash.modulate = get_color_from_enum(shape_type)
-	flash.scale = Vector2(0.1, 0.1)
-	
-	play_safe_sound("hit", randf_range(1.1, 1.3))
-	
-	var tween = create_tween()
-	tween.tween_property(flash, "scale", Vector2(1.5, 1.5), 0.1)
-	tween.parallel().tween_property(flash, "modulate", Color(1, 1, 1, 0), 0.3)
-	tween.tween_callback(flash.queue_free)
-	
-	var particles_timer = Timer.new()
-	particles.add_child(particles_timer)
-	particles_timer.wait_time = 1.0
-	particles_timer.one_shot = true
-	particles_timer.timeout.connect(func(): particles.queue_free())
-	particles_timer.start()
+	# Camera shake code removed
+	pass
 
 func play_safe_sound(sound_name: String, pitch_scale: float = 1.0, volume_db: float = -5.0):
 	var dirs_to_try = ["res://audio/", "res://sounds/"]
@@ -396,198 +369,19 @@ func destroy():
 	
 	freeze = true
 	
+	# Simple fade out
 	if has_node("ShapeVisual"):
 		var visual = get_node("ShapeVisual")
 		var tween = create_tween()
-		
-		# More dramatic destruction effect for shapes in clusters
-		if cluster_position != Vector2.ZERO:
-			# Create trail effect pointing away from cluster center
-			var direction = (global_position - cluster_position).normalized()
-			var trail = CPUParticles2D.new()
-			trail.emitting = true
-			trail.amount = 15
-			trail.lifetime = 0.3
-			trail.explosiveness = 0.8
-			trail.direction = direction
-			trail.spread = 30
-			trail.gravity = Vector2.ZERO
-			trail.initial_velocity_min = 80
-			trail.initial_velocity_max = 150
-			trail.scale_amount_min = 2
-			trail.scale_amount_max = 5
-			trail.color = get_color_from_enum(color)
-			add_child(trail)
-			
-			# More dramatic visual effect
-			var explosion_scale = 1.3
-			tween.tween_property(visual, "scale", Vector2(explosion_scale, explosion_scale), 0.1)
-			tween.tween_property(visual, "scale", Vector2(0.1, 0.1), 0.2)
-			tween.parallel().tween_property(visual, "modulate:a", 0.0, 0.2)
-		else:
-			# Standard fade-out for non-cluster shapes
-			tween.tween_property(visual, "modulate:a", 0.0, 0.3)
+		tween.tween_property(visual, "modulate:a", 0.0, 0.3)
 	
 	await get_tree().create_timer(0.3).timeout
 	
 	queue_free()
 
 func create_destroy_effect():
-	var global_pos = global_position
-	var effect_color = get_color_from_enum(color)
-	
-	var effect_root = Node2D.new()
-	effect_root.name = "DestroyEffectRoot"
-	effect_root.position = global_pos
-	get_tree().root.add_child(effect_root)
-	
-	# Enhanced flash effect
-	var flash = ColorRect.new()
-	effect_root.add_child(flash)
-	flash.size = Vector2(radius * 8, radius * 8)
-	flash.position = Vector2(-radius * 4, -radius * 4)
-	flash.color = Color(1.0, 1.0, 1.0, 0.9)
-	
-	var flash_tween = create_tween()
-	flash_tween.tween_property(flash, "color", effect_color.lightened(0.5), 0.15)
-	flash_tween.tween_property(flash, "color:a", 0.0, 0.4)
-	
-	# Improved main particle burst
-	var particles = CPUParticles2D.new()
-	effect_root.add_child(particles)
-	particles.z_index = 1
-	particles.amount = 60
-	particles.lifetime = 0.9
-	particles.explosiveness = 1.0
-	particles.one_shot = true
-	particles.emitting = true
-	particles.spread = 180
-	particles.gravity = Vector2(0, 50)
-	particles.initial_velocity_min = 100
-	particles.initial_velocity_max = 220
-	particles.scale_amount_min = 4.0
-	particles.scale_amount_max = 8.0
-	particles.color = effect_color.lightened(0.3)
-	
-	# Use a curve for better particle size animation
-	var size_curve = Curve.new()
-	size_curve.add_point(Vector2(0, 0.8))
-	size_curve.add_point(Vector2(0.3, 1.0))
-	size_curve.add_point(Vector2(0.8, 0.7))
-	size_curve.add_point(Vector2(1.0, 0))
-	particles.scale_amount_curve = size_curve
-	
-	# Better color gradient
-	var color_gradient = Gradient.new()
-	color_gradient.colors = [
-		effect_color.lightened(0.4),
-		Color(effect_color.r + 0.3, effect_color.g + 0.3, effect_color.b + 0.3, 0)
-	]
-	color_gradient.offsets = [0.5, 1.0]
-	particles.color_ramp = color_gradient
-	
-	# Add sparkle effect with stars
-	var sparkles = CPUParticles2D.new()
-	effect_root.add_child(sparkles)
-	sparkles.z_index = 2
-	sparkles.amount = 20
-	sparkles.lifetime = 0.8
-	sparkles.explosiveness = 1.0
-	sparkles.one_shot = true
-	sparkles.emitting = true
-	sparkles.spread = 180
-	sparkles.gravity = Vector2(0, 20)
-	sparkles.initial_velocity_min = 120
-	sparkles.initial_velocity_max = 200
-	sparkles.scale_amount_min = 2.0
-	sparkles.scale_amount_max = 4.0
-	sparkles.color = Color(1, 1, 1, 0.9)
-	sparkles.texture = create_star_texture()
-	
-	# Heart particles
-	var heart_particles = CPUParticles2D.new()
-	effect_root.add_child(heart_particles)
-	heart_particles.z_index = 3
-	heart_particles.amount = 6
-	heart_particles.lifetime = 1.0
-	heart_particles.explosiveness = 0.95
-	heart_particles.one_shot = true
-	heart_particles.emitting = true
-	heart_particles.spread = 180
-	heart_particles.gravity = Vector2(0, 20)
-	heart_particles.initial_velocity_min = 60
-	heart_particles.initial_velocity_max = 120
-	heart_particles.scale_amount_min = 4.0
-	heart_particles.scale_amount_max = 6.0
-	heart_particles.color = Color(0.95, 0.6, 0.7, 0.9)
-	heart_particles.color_ramp = create_fade_out_gradient()
-	
-	var heart_texture = create_heart_texture()
-	if heart_texture != null:
-		heart_particles.texture = heart_texture
-	
-	# Improved ring effect
-	var ring = Sprite2D.new()
-	effect_root.add_child(ring)
-	ring.z_index = -1
-	
-	var ring_img = Image.create(128, 128, false, Image.FORMAT_RGBA8)
-	ring_img.fill(Color(0, 0, 0, 0))
-	
-	var center = Vector2(64, 64)
-	var ring_radius = 60
-	var ring_width = 15
-	
-	for x in range(128):
-		for y in range(128):
-			var dist = Vector2(x, y).distance_to(center)
-			if dist > ring_radius - ring_width && dist < ring_radius + ring_width:
-				var alpha = 1.0 - abs(dist - ring_radius) / ring_width
-				var color = effect_color.lightened(0.4)
-				color.a = alpha * 0.8
-				ring_img.set_pixel(x, y, color)
-	
-	ring.texture = ImageTexture.create_from_image(ring_img)
-	ring.scale = Vector2(0.5, 0.5)
-	
-	var ring_tween = create_tween()
-	ring_tween.tween_property(ring, "scale", Vector2(4.0, 4.0), 0.8).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-	ring_tween.parallel().tween_property(ring, "modulate:a", 0.0, 0.8)
-	
-	# Enhanced burst circle
-	var burst_circle = Sprite2D.new()
-	effect_root.add_child(burst_circle)
-	burst_circle.z_index = 2
-	
-	var burst_img = Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	burst_img.fill(Color(0, 0, 0, 0))
-	
-	var burst_center = Vector2(32, 32)
-	var burst_radius = 30
-	
-	for x in range(64):
-		for y in range(64):
-			var dist = Vector2(x, y).distance_to(burst_center)
-			if dist < burst_radius:
-				var alpha = 1.0 - (dist / burst_radius)
-				var color = Color(1, 1, 1, alpha * 0.95)
-				burst_img.set_pixel(x, y, color)
-	
-	burst_circle.texture = ImageTexture.create_from_image(burst_img)
-	burst_circle.modulate = effect_color.lightened(0.5)
-	burst_circle.scale = Vector2(0.1, 0.1)
-	
-	var burst_tween = create_tween()
-	burst_tween.tween_property(burst_circle, "scale", Vector2(2.0, 2.0), 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	burst_tween.parallel().tween_property(burst_circle, "modulate:a", 0.0, 0.4)
-	
-	# Cleanup timer
-	var cleanup_timer = Timer.new()
-	effect_root.add_child(cleanup_timer)
-	cleanup_timer.wait_time = 1.5
-	cleanup_timer.one_shot = true
-	cleanup_timer.timeout.connect(func(): effect_root.queue_free())
-	cleanup_timer.start()
+	# Camera shake code removed
+	pass
 
 func create_fade_out_gradient() -> Gradient:
 	var gradient = Gradient.new()
@@ -724,3 +518,17 @@ func initialize_shape():
 		visual.queue_free()
 	
 	gravity_scale = 0.0
+
+func apply_separation_forces():
+	var shapes = get_tree().get_nodes_in_group("shapes")
+	for other_shape in shapes:
+		if other_shape == self or other_shape.is_queued_for_deletion():
+			continue
+			
+		var distance = global_position.distance_to(other_shape.global_position)
+		if distance < min_separation_distance and distance > 0:
+			# Calculate repulsion vector (away from the other shape)
+			var repulsion_vector = (global_position - other_shape.global_position).normalized()
+			# Stronger exponential falloff for more aggressive separation
+			var force_strength = separation_force * pow(1.0 - distance / min_separation_distance, 3.0)
+			apply_central_force(repulsion_vector * force_strength)

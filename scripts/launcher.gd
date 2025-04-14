@@ -112,7 +112,10 @@ func launch_shape():
 		current_shape.gravity_scale = 0.5
 		current_shape.linear_damp = 0.3
 		
-		current_shape.apply_central_impulse(aim_direction * launch_speed)
+		# Ensure this is a stronger impulse to overcome potential separation forces
+		var launch_impulse = aim_direction * launch_speed * 2.0
+		current_shape.apply_central_impulse(launch_impulse)
+		
 		if current_shape.has_method("set_launched"):
 			current_shape.set_launched()
 		else:
@@ -342,26 +345,12 @@ func update_trajectory_pointer(mouse_pos):
 		arrow.scale = Vector2(arrow_scale, arrow_scale)
 
 func add_launch_effect():
-	var effect = CPUParticles2D.new()
-	effect.position = Vector2.ZERO
-	effect.amount = 16
-	effect.lifetime = 0.5
-	effect.explosiveness = 0.9
-	effect.direction = Vector2(0, -1)
-	effect.spread = 30
-	effect.gravity = Vector2(0, 150)
-	effect.initial_velocity_min = 70
-	effect.initial_velocity_max = 100
-	effect.scale_amount_min = 4
-	effect.scale_amount_max = 6
-	effect.color = Color(1.0, 0.7, 0.4)
-	effect.color_ramp = create_particle_gradient()
-	
-	add_child(effect)
-	effect.emitting = true
-	
-	await get_tree().create_timer(effect.lifetime + 0.1).timeout
-	effect.queue_free()
+	# Camera shake code removed
+	pass
+
+func create_launch_flash():
+	# Camera shake code removed
+	pass
 
 func create_particle_gradient() -> Gradient:
 	var gradient = Gradient.new()
@@ -747,35 +736,6 @@ func _on_shape_bounced(body_node: Node):
 		
 		# Check for matching shapes nearby
 		check_for_matches(body_node)
-
-func create_launch_flash():
-	var flash = Sprite2D.new()
-	flash.z_index = 10
-	
-	var flash_size = 64
-	var flash_image = Image.create(flash_size, flash_size, false, Image.FORMAT_RGBA8)
-	flash_image.fill(Color(1, 1, 1, 0))
-	
-	var center = Vector2(flash_size / 2.0, flash_size / 2.0)
-	var max_radius = flash_size / 2.0
-	
-	for x in range(flash_size):
-		for y in range(flash_size):
-			var pos = Vector2(x, y)
-			var dist = pos.distance_to(center)
-			
-			if dist < max_radius:
-				var alpha = 1.0 - pow(dist / max_radius, 2)
-				flash_image.set_pixel(x, y, Color(1, 0.95, 0.8, alpha))
-	
-	flash.texture = ImageTexture.create_from_image(flash_image)
-	flash.modulate.a = 0.8
-	add_child(flash)
-	
-	var tween = safe_tween(flash)
-	if tween:
-		tween.tween_property(flash, "modulate:a", 0.0, 0.3)
-		tween.tween_callback(flash.queue_free)
 
 func check_for_matches(shape_node):
 	var match_radius = 100.0  # Detection radius for matching
