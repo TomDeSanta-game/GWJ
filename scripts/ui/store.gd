@@ -132,4 +132,9 @@ func _on_back_button_pressed():
 	tween.tween_property(back_btn, "modulate", Color(1.5, 1.5, 1.5), 0.1)
 	tween.tween_property(back_btn, "modulate", Color(1, 1, 1), 0.1)
 	
-	emit_signal("back_pressed") 
+	emit_signal("back_pressed")
+	get_tree().change_scene_to_file("res://scenes/MainNew.tscn")
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("open") or event.is_action_pressed("ui_cancel"):
+		get_tree().change_scene_to_file("res://scenes/MainNew.tscn") 

@@ -3,10 +3,10 @@
 [ext_resource type="Script" uid="uid://cbhy7p3anenyq" path="res://scripts/game_controller.gd" id="1_k31jy"]
 [ext_resource type="Script" uid="uid://bfaltgio4e5fa" path="res://scripts/launcher.gd" id="3_1e6a1"]
 [ext_resource type="PackedScene" uid="uid://ckrjns83yjgt3" path="res://scenes/Shape.tscn" id="4_77nxu"]
-[ext_resource type="PackedScene" uid="uid://doaqvupbr68d8" path="res://scenes/Store.tscn" id="4_u7byf"]
 [ext_resource type="PackedScene" uid="uid://c3d8e4p6xn2co" path="res://scenes/high_score_panel.tscn" id="5_r3w1c"]
 [ext_resource type="Script" uid="uid://bihk7yq2mlwx1" path="res://scripts/icon_animation.gd" id="6_tfw1n"]
 [ext_resource type="FontFile" uid="uid://bsrs5fwwpc2eo" path="res://assets/fonts/pixel_font.ttf" id="7_gqbep"]
+[ext_resource type="PackedScene" uid="uid://doaqvupbr68d8" path="res://scenes/Store.tscn" id="7_y8q0o"]
 
 [sub_resource type="Gradient" id="Gradient_jc2gh"]
 offsets = PackedFloat32Array(0, 0.4, 0.8, 1)
@@ -421,10 +421,6 @@ theme_override_font_sizes/font_size = 18
 text = "MONEY: $0"
 vertical_alignment = 1
 
-[node name="Store" parent="." instance=ExtResource("4_u7byf")]
-visible = false
-scale = Vector2(2, 2)
-
 [node name="MainCamera" type="Camera2D" parent="."]
 position = Vector2(320, 400)
 zoom = Vector2(0.8, 0.8)
@@ -432,5 +428,9 @@ position_smoothing_enabled = true
 position_smoothing_speed = 4.0
 editor_draw_limits = true
 editor_draw_drag_margin = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Store" parent="CanvasLayer" instance=ExtResource("7_y8q0o")]
 
 [connection signal="timeout" from="AnimationIcons/IconAnimationTimer" to="AnimationIcons" method="_on_icon_animation_timer_timeout"]

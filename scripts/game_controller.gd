@@ -14,7 +14,6 @@ var is_game_over: bool = false
 var level_number: int = 1
 var shapes_destroyed: int = 0
 var shapes_for_next_level: int = 20
-var is_shop_open: bool = false
 
 var enemy_speed: float = 80.0
 var time_since_last_spawn: float = 0.0
@@ -35,13 +34,23 @@ func _ready() -> void:
 	setup_level_visuals(level_number)
 	update_high_score_display()
 	update_money_display()
+	
+	var store_scene = load("res://scenes/Store.tscn")
+	if store_scene:
+		var store_instance = store_scene.instantiate()
+		store_instance.name = "Store"
+		add_child(store_instance)
+		store_instance.visible = false
+		print("Store instance added successfully")
+	else:
+		print("Failed to load store scene")
 
 func connect_signals() -> void:
 	SignalBus.shapes_popped.connect(_on_shapes_popped)
 	SignalBus.game_over_triggered.connect(_on_game_over)
 	SignalBus.score_changed.connect(update_score_display)
 	SignalBus.shape_launched.connect(_on_shape_launched)
-	SignalBus.money_changed.connect(func(new_money): update_money_display())
+	SignalBus.money_changed.connect(func(_new_money): update_money_display())
 	SignalBus.high_scores_updated.connect(func(_high_scores): update_high_score_display())
 
 func setup_input_map() -> void:
@@ -58,12 +67,12 @@ func setup_input_map() -> void:
 		key_event.pressed = true
 		InputMap.action_add_event("fire", key_event)
 	
-	if not InputMap.has_action("toggle_shop"):
-		InputMap.add_action("toggle_shop")
-		var shop_key = InputEventKey.new()
-		shop_key.keycode = KEY_S
-		shop_key.pressed = true
-		InputMap.action_add_event("toggle_shop", shop_key)
+	if not InputMap.has_action("open"):
+		InputMap.add_action("open")
+		var open_key = InputEventKey.new()
+		open_key.keycode = KEY_E
+		open_key.pressed = true
+		InputMap.action_add_event("open", open_key)
 
 func _process(delta: float) -> void:
 	if is_game_over:
@@ -71,10 +80,6 @@ func _process(delta: float) -> void:
 		
 	handle_enemy_spawning(delta)
 	update_difficulty(delta)
-
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("toggle_shop"):
-		toggle_shop()
 
 func update_difficulty(delta: float) -> void:
 	game_difficulty += delta * 0.01
@@ -186,36 +191,6 @@ func check_enemies_reached_bottom() -> void:
 			_on_game_over()
 			return
 
-func toggle_shop() -> void:
-	if is_shop_open:
-		close_shop()
-	else:
-		open_shop()
-
-func open_shop() -> void:
-	var shop = $Store
-	if shop:
-		shop.visible = true
-		shop.scale = Vector2(1.0, 1.0)
-		
-		shop.anchor_left = 0.5
-		shop.anchor_top = 0.5
-		shop.anchor_right = 0.5
-		shop.anchor_bottom = 0.5
-		shop.position = Vector2.ZERO
-		
-		is_shop_open = true
-		get_tree().paused = true
-	else:
-		print("Shop not found at Main/Store")
-
-func close_shop() -> void:
-	var shop = $Store
-	if shop:
-		shop.visible = false
-	is_shop_open = false
-	get_tree().paused = false
-
 func _on_shapes_popped(count: int) -> void:
 	shapes_destroyed += 1
 	
@@ -293,8 +268,6 @@ func show_game_over_screen() -> void:
 					position = high_scores.size()
 			
 			SignalBus.emit_new_high_score(score, position + 1)
-	else:
-		print("Error: High Score Panel scene not assigned")
 
 func update_high_score_display() -> void:
 	var high_score_label = get_node_or_null("HighScoreDisplay/HighScoreLabel")
@@ -342,3 +315,11 @@ func update_money_display() -> void:
 					if shine_tween:
 						shine_tween.tween_property(shine, "scale", Vector2(0.5, 0.5), 0.3)
 						shine_tween.tween_property(shine, "scale", Vector2(0.3, 0.3), 0.3)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("open"):
+		print("E key pressed! Changing to store scene...")
+		get_tree().change_scene_to_file("res://scenes/Store.tscn")
+
+func toggle_store() -> void:
+	get_tree().change_scene_to_file("res://scenes/Store.tscn")

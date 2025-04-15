@@ -18,17 +18,14 @@ var has_launched: bool = false
 var in_grid: bool = false
 
 func _ready():
-	print("Shape created: ", self, " is_enemy: ", is_enemy)
 	initialize_shape()
 	
-	# Force immediate group assignment
 	if is_enemy:
 		add_to_group("enemies")
 		add_to_group("Enemies")
 	else:
 		add_to_group("shapes")
 		
-	# Monitor collisions
 	contact_monitor = true
 	max_contacts_reported = 20
 	
@@ -59,13 +56,12 @@ func initialize_shape():
 	self.angular_damp = 5.0
 	
 	if is_enemy:
-		self.collision_layer = 2  # Layer for enemy shapes
-		self.collision_mask = 1   # Collide with player shapes
+		self.collision_layer = 2
+		self.collision_mask = 1
 	else:
-		self.collision_layer = 1  # Layer for player shapes
-		self.collision_mask = 2   # Collide with enemy shapes
+		self.collision_layer = 1
+		self.collision_mask = 2
 	
-	# Reconnect signal to make sure it's not connected multiple times
 	if body_entered.is_connected(_on_body_entered):
 		body_entered.disconnect(_on_body_entered)
 	body_entered.connect(_on_body_entered)
@@ -135,7 +131,7 @@ func create_pixel_art_shape():
 
 func draw_pixel_square(img: Image, size_px: int, color_value: Color):
 	var border_size = 1
-	var inner_size = size_px - 2 * border_size
+	var _inner_size = size_px - 2 * border_size
 	
 	var border_color = color_value.darkened(0.3)
 	for x in range(size_px):
@@ -194,24 +190,18 @@ func draw_pixel_triangle(img: Image, size_px: int, color_value: Color):
 				img.set_pixel(x, y, color_value.lightened(highlight))
 
 func _on_body_entered(body):
-	print("Body entered: ", body, " is enemy: ", is_enemy, " body is enemy: ", body.get("is_enemy") if body else "N/A")
-	
 	if not is_instance_valid(body):
 		return
 		
 	var body_is_enemy = body.get("is_enemy")
 	
-	# Player shape hits enemy
 	if launched and not is_enemy and body_is_enemy:
-		print("Player hit enemy!")
 		body.create_pixel_explosion()
 		body.queue_free()
 		SignalBus.emit_shapes_popped(1)
 		SignalBus.emit_enemy_destroyed(body)
 	
-	# Enemy hits player shape
 	elif is_enemy and not body_is_enemy and body.get("launched"):
-		print("Enemy hit by player!")
 		create_pixel_explosion()
 		queue_free()
 		SignalBus.emit_shapes_popped(1)
@@ -225,29 +215,24 @@ func check_direct_collisions():
 			
 		var body_is_enemy = body.get("is_enemy")
 		
-		# If player shape detects colliding with enemy
 		if not is_enemy and body_is_enemy:
-			print("Direct collision: player with enemy")
 			body.create_pixel_explosion()
 			body.queue_free()
 			SignalBus.emit_shapes_popped(1)
 			SignalBus.emit_enemy_destroyed(body)
 
 func set_launched():
-	print("Shape launched: ", self, " is_enemy: ", is_enemy)
 	has_launched = true
 	launched = true
 	
-	# Reset physics properties to ensure movement and collision work
 	self.freeze = false
 	self.sleeping = false
 	self.gravity_scale = 0.0
-	self.collision_layer = 1  # Layer for player shapes
-	self.collision_mask = 2   # Collide with enemy shapes
+	self.collision_layer = 1
+	self.collision_mask = 2
 	self.contact_monitor = true
 	self.max_contacts_reported = 20
 	
-	# Force reactivate collision detection
 	var collision_shape = get_node_or_null("CollisionShape2D")
 	if collision_shape:
 		collision_shape.disabled = false
@@ -276,25 +261,22 @@ func move_towards_target(delta: float):
 			game_controller.check_enemies_reached_bottom()
 
 func check_player_collision():
-	# Extra check specifically for enemy shapes
 	if not is_enemy:
 		return
 		
 	var space_state = get_world_2d().direct_space_state
 	var query = PhysicsShapeQueryParameters2D.new()
 	
-	# Get the shape from our collision shape
 	var collision_shape = get_node_or_null("CollisionShape2D")
 	if collision_shape and collision_shape.shape:
 		query.set_shape(collision_shape.shape)
 		query.transform = collision_shape.global_transform
-		query.collision_mask = 1  # Layer for player shapes
+		query.collision_mask = 1
 		
 		var results = space_state.intersect_shape(query)
 		for result in results:
 			var collider = result.collider
 			if is_instance_valid(collider) and not collider.is_enemy and collider.launched:
-				print("Enemy detected player collision via query!")
 				create_pixel_explosion()
 				queue_free()
 				SignalBus.emit_shapes_popped(1)
@@ -302,79 +284,87 @@ func check_player_collision():
 				return
 
 func create_pixel_explosion():
-	# Store position before removal
-	var original_position = global_position
-	var original_color = get_shape_color()
+	var visual = get_node_or_null("ShapeVisual")
+	if not visual:
+		queue_free()
+		return
+		
+	var sprite = visual.get_child(0) if visual.get_child_count() > 0 else null
+	if not sprite or not sprite is Sprite2D:
+		queue_free()
+		return
+	
+	var shape_color = get_shape_color()
+	var duration = 0.8
+	var _explosion_power = 150.0
+	var num_pixels = 10
+	var min_size = 8
+	var max_size = 12
+	
+	visual.visible = false
+	
 	var parent = get_parent()
+	if not parent:
+		queue_free()
+		return
+		
+	var particles_parent = Node2D.new()
+	particles_parent.name = "ExplosionParticles"
+	particles_parent.global_position = global_position
+	parent.add_child(particles_parent)
 	
-	# Make the original shape invisible
-	visible = false
-
-	# Create single pop effect
-	var pop_effect = Node2D.new()
-	pop_effect.name = "PopEffect"
-	pop_effect.global_position = original_position
-	parent.add_child(pop_effect)
+	for i in range(num_pixels):
+		var pixel_size = randf_range(min_size, max_size)
+		
+		var pixel = ColorRect.new()
+		pixel.size = Vector2(pixel_size, pixel_size)
+		
+		var pixel_color = shape_color
+		pixel_color = pixel_color.lightened(randf_range(-0.2, 0.2))
+		pixel.color = pixel_color
+		
+		var offset = Vector2(randf_range(-5, 5), randf_range(-5, 5))
+		pixel.position = offset - pixel.size/2
+		
+		var angle = randf_range(0, TAU)
+		var distance = randf_range(20, 80)
+		var target_pos = Vector2(cos(angle), sin(angle)) * distance
+		
+		particles_parent.add_child(pixel)
+		
+		var tween = particles_parent.create_tween()
+		tween.set_parallel(true)
+		tween.tween_property(pixel, "position", target_pos, duration)
+		tween.tween_property(pixel, "rotation", randf_range(-PI, PI), duration)
+		tween.tween_property(pixel, "color:a", 0.0, duration)
 	
-	# Simple white flash
 	var flash = ColorRect.new()
-	flash.color = Color(1, 1, 1, 0.7)
 	flash.size = Vector2(40, 40)
-	flash.position = Vector2(-20, -20)
-	pop_effect.add_child(flash)
+	flash.position = -flash.size/2
+	flash.color = shape_color.lightened(0.5)
+	flash.color.a = 0.6
+	particles_parent.add_child(flash)
 	
-	# Flash animation - just fade out
-	var flash_tween = create_tween()
-	flash_tween.tween_property(flash, "color:a", 0.0, 0.2)
-	
-	# Simple expanding circles
-	for i in range(2):
-		var circle = Line2D.new()
-		circle.width = 2.0
-		circle.default_color = original_color
-		
-		# Create circle points
-		var points = []
-		var segments = 6
-		for j in range(segments + 1):
-			var angle = TAU * j / segments
-			points.append(Vector2(cos(angle), sin(angle)) * 5.0)
-		
-		circle.points = PackedVector2Array(points)
-		pop_effect.add_child(circle)
-		
-		# Simple expand and fade animation
-		var circle_tween = create_tween()
-		circle_tween.tween_property(circle, "scale", Vector2(5, 5), 0.3)
-		circle_tween.parallel().tween_property(circle, "modulate:a", 0.0, 0.3)
-		
-		# Start second circle slightly delayed
-		if i == 1:
-			circle.modulate.a = 0.7
-			circle.scale = Vector2(0.5, 0.5)
-			circle_tween.set_delay(0.1)
-	
-	# Add tiny screen shake
-	var camera = get_viewport().get_camera_2d()
-	if camera:
-		var shake_tween = create_tween()
-		shake_tween.tween_property(camera, "offset", Vector2(2, 0), 0.05)
-		shake_tween.tween_property(camera, "offset", Vector2(-2, 0), 0.05)
-		shake_tween.tween_property(camera, "offset", Vector2.ZERO, 0.05)
-	
-	# Cleanup timer
-	var cleanup_timer = Timer.new()
-	cleanup_timer.one_shot = true
-	cleanup_timer.wait_time = 0.4
-	pop_effect.add_child(cleanup_timer)
-	cleanup_timer.start()
-	
-	cleanup_timer.timeout.connect(func():
-		pop_effect.queue_free()
+	var flash_tween = particles_parent.create_tween()
+	flash_tween.tween_property(flash, "color:a", 0.0, 0.15)
+	flash_tween.tween_callback(func(): 
+		if is_instance_valid(flash):
+			flash.queue_free()
 	)
 	
-	# Queue self for deletion immediately
-	queue_free()
+	# Queue this shape for deletion safely using a one-shot timer
+	var delete_timer = get_tree().create_timer(0.1)
+	delete_timer.timeout.connect(func():
+		if is_instance_valid(self):
+			queue_free()
+	)
+	
+	# Setup cleanup after animation completes
+	var cleanup_timer = get_tree().create_timer(duration)
+	cleanup_timer.timeout.connect(func(): 
+		if is_instance_valid(particles_parent):
+			particles_parent.queue_free()
+	)
 
 func get_shape_color() -> Color:
 	match color:
