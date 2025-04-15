@@ -303,7 +303,7 @@ func update_high_score_display() -> void:
 		if high_score_mgr:
 			var high_scores = high_score_mgr.get_high_scores()
 			if high_scores.size() > 0:
-				high_score_label.text = "High Score: " + str(high_scores[0])
+				high_score_label.text = "High: " + str(high_scores[0])
 				
 				var crown_icon = get_node_or_null("HighScoreDisplay/CrownIcon")
 				if crown_icon:
@@ -313,7 +313,7 @@ func update_high_score_display() -> void:
 						tween.tween_property(crown_icon, "scale", Vector2(0.6, 0.6), 0.3)
 						tween.tween_property(crown_icon, "scale", Vector2(0.5, 0.5), 0.3)
 			else:
-				high_score_label.text = "High Score: 0"
+				high_score_label.text = "High: 0"
 
 func update_money_display() -> void:
 	var money_label = get_node_or_null("MoneyDisplay/MoneyLabel")
