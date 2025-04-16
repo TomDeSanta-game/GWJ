@@ -10,6 +10,8 @@ var can_launch: bool = true
 var cooldown_timer: float = 0.0  
 var aim_direction: Vector2 = Vector2.UP  
 var game_over: bool = false
+var multi_shot_count: int = 1  # Default to 1 shot
+var is_spawning_shape: bool = false # Mutex flag to prevent concurrent spawns
 
 var launcher_core: Node2D
 var launcher_inner: Node2D
@@ -27,6 +29,23 @@ const MAX_DOTS = 10
 func _ready():  
 	initialize_launcher()
 	spawn_current_shape()
+	
+	# Connect to the upgrades signal
+	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
+		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
+	
+	# Get initial upgrades from game controller
+	var game_controller = get_node_or_null("/root/Main")
+	if game_controller and game_controller.has_method("get_upgrades"):
+		var upgrades = game_controller.get_upgrades()
+		if upgrades.has("multi_shot"):
+			multi_shot_count = upgrades["multi_shot"]
+			print("Initial multi_shot_count set to: ", multi_shot_count)
+
+func _on_upgrades_changed(upgrades: Dictionary):
+	if upgrades.has("multi_shot"):
+		multi_shot_count = upgrades["multi_shot"]
+		print("Multi-shot updated to: ", multi_shot_count)
 
 func initialize_launcher():
 	ensure_launcher_parts()
@@ -82,7 +101,10 @@ func update_cooldown(delta):
 						var tween = create_tween()
 						tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.2)
 						tween.tween_property(crosshair, "scale", original_scale, 0.3)
-						tween.tween_callback(func(): ready_node.queue_free())
+						tween.tween_callback(func():
+							if is_instance_valid(ready_node) and not ready_node.is_queued_for_deletion():
+								ready_node.queue_free()
+						)
 		
 		update_cooldown_visual()
 
@@ -111,6 +133,9 @@ func launch_shape():
 	if not can_launch or not current_shape:
 		return
 		
+	# Set spawning flag to false to cancel any ongoing spawn operations
+	is_spawning_shape = false
+	
 	add_launch_effect()
 	create_launch_flash()
 	
@@ -124,58 +149,137 @@ func launch_shape():
 			tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.1)
 			tween.tween_property(crosshair, "scale", original_scale, 0.2)
 	
-	if current_shape is RigidBody2D:
-		var old_shape = current_shape
+	# Print the current multi_shot_count to debug
+	print("Launching with multi_shot_count: ", multi_shot_count)
+	
+	# Get the last shape that was launched for signal
+	var last_launched_shape = null
+	
+	# Store and clear the original shape
+	var original_shape = current_shape
+	current_shape = null
+	
+	# Launch multiple shapes based on multi_shot_count
+	for i in range(multi_shot_count):
+		var shot_shape = null
 		
-		current_shape.freeze = false
-		current_shape.gravity_scale = 0.0
-		current_shape.linear_damp = 0.0  
-		current_shape.contact_monitor = true
-		current_shape.max_contacts_reported = 10
-		current_shape.lock_rotation = false
-		current_shape.add_to_group("shapes")
-		
-		var launch_impulse = aim_direction * launch_speed
-		current_shape.apply_central_impulse(launch_impulse)
-		
-		if current_shape.has_method("set_launched"):
-			current_shape.set_launched()
+		if i == 0 and original_shape and is_instance_valid(original_shape):
+			# Use the original shape for the first shot
+			shot_shape = original_shape
+			if shot_shape.is_in_group("launcher_shapes"):
+				shot_shape.remove_from_group("launcher_shapes")
 		else:
-			current_shape.launched = true
+			# Create additional shapes for multi-shot
+			shot_shape = shape_scene.instantiate()
+			shot_shape.shape_type = randi() % 3
+			shot_shape.color = randi() % 6
+			get_parent().add_child(shot_shape)
+			shot_shape.position = position
 			
-		current_shape.apply_torque_impulse(randf_range(-10000, 10000))
+			# Force the additional shapes to be properly initialized
+			shot_shape.initialize_shape()
 		
-		current_shape = null
-		can_launch = false
-		cooldown_timer = cooldown_time
-		
-		spawn_current_shape()
-		
-		SignalBus.emit_shape_launched(old_shape)
-	else:
-		pass
+		if shot_shape and is_instance_valid(shot_shape):
+			last_launched_shape = shot_shape
+			
+			# Calculate spread angle for multiple shots
+			var spread_angle = 0.0
+			if multi_shot_count > 1:
+				spread_angle = (i - (multi_shot_count - 1) / 2.0) * 0.15  # Increased spread angle
+			
+			var shot_direction = aim_direction.rotated(spread_angle)
+			
+			shot_shape.freeze = false
+			shot_shape.gravity_scale = 0.0
+			shot_shape.linear_damp = 0.0  
+			shot_shape.contact_monitor = true
+			shot_shape.max_contacts_reported = 10
+			shot_shape.lock_rotation = false
+			shot_shape.add_to_group("shapes")
+			
+			var launch_impulse = shot_direction * launch_speed
+			shot_shape.apply_central_impulse(launch_impulse)
+			
+			if shot_shape.has_method("set_launched"):
+				shot_shape.set_launched()
+			else:
+				shot_shape.launched = true
+				
+			shot_shape.apply_torque_impulse(randf_range(-10000, 10000))
+			
+			# Debug print for each shape launched
+			print("Launched shape ", i+1, " of ", multi_shot_count)
+	
+	can_launch = false
+	cooldown_timer = cooldown_time
+	
+	# Wait until we've finished launching before spawning a new shape
+	await get_tree().process_frame
+	
+	spawn_current_shape()
+	
+	if last_launched_shape:
+		SignalBus.emit_shape_launched(last_launched_shape)
 
 func spawn_current_shape():
-	if current_shape:
+	# If we're already spawning a shape, don't start another spawn
+	if is_spawning_shape:
+		print("Prevented concurrent shape spawn")
+		return
+		
+	is_spawning_shape = true
+	
+	# First, clean up the current shape
+	if current_shape and is_instance_valid(current_shape):
 		current_shape.queue_free()
 		current_shape = null
 	
+	# Then, forcefully clean up ALL launcher shapes - more aggressive cleanup
+	var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
+	for shape in launcher_shapes:
+		if is_instance_valid(shape):
+			shape.queue_free()
+	
+	# Wait for a frame to ensure cleanup is complete
+	await get_tree().process_frame
+	
+	# Final check for any shapes at the launcher position
+	var all_shapes = get_tree().get_nodes_in_group("shapes")
+	for shape in all_shapes:
+		if is_instance_valid(shape) and shape.position.distance_to(position) < 20:
+			shape.queue_free()
+	
+	# Wait again to ensure all cleanups have processed
+	await get_tree().process_frame
+	
+	# Only continue if we're still supposed to be spawning
+	# (check if something canceled the spawning while we were waiting)
+	if !is_spawning_shape:
+		return
+	
+	# Create a new shape
 	var shape = shape_scene.instantiate() 
 	shape.shape_type = randi() % 3
 	shape.color = randi() % 6
 	shape.freeze = true
+	shape.add_to_group("launcher_shapes")
 	
 	var glow = ColorRect.new()
 	glow.color = Color(1, 0.9, 0.7, 0.2)
 	glow.size = Vector2(60, 60)
 	glow.position = Vector2(-30, -30)
 	glow.z_index = -1
-	shape.call_deferred("add_child", glow)
+	shape.add_child(glow)
 	
-	get_parent().call_deferred("add_child", shape)
+	# Add shape directly
+	get_parent().add_child(shape)
 	shape.position = position
 	
 	current_shape = shape
+	
+	# Brief delay to ensure the shape is fully setup before allowing another spawn
+	await get_tree().create_timer(0.05).timeout
+	is_spawning_shape = false
 
 func update_cooldown_visual():
 	var base = get_node_or_null("LauncherCore")
@@ -205,7 +309,10 @@ func update_cooldown_visual():
 						var tween = create_tween()
 						tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.2)
 						tween.tween_property(crosshair, "scale", original_scale, 0.3)
-						tween.tween_callback(func(): ready_node.queue_free())
+						tween.tween_callback(func():
+							if is_instance_valid(ready_node) and not ready_node.is_queued_for_deletion():
+								ready_node.queue_free()
+						)
 				
 			core_inner.modulate = Color(1.0, 1.0, 1.0)
 

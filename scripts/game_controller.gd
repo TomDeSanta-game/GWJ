@@ -16,6 +16,7 @@ var is_game_over: bool = false
 var level_number: int = 1
 var shapes_destroyed: int = 0
 var shapes_for_next_level: int = 20
+var upgrades = {"multi_shot": 1}  # Player upgrades, default to 1 shot
 
 var enemy_speed: float = 80.0
 var time_since_last_spawn: float = 0.0
@@ -49,8 +50,22 @@ func connect_signals() -> void:
 	SignalBus.game_over_triggered.connect(_on_game_over)
 	SignalBus.score_changed.connect(update_score_display)
 	SignalBus.shape_launched.connect(_on_shape_launched)
-	SignalBus.money_changed.connect(func(_new_money): update_money_display())
-	SignalBus.high_scores_updated.connect(func(_high_scores): update_high_score_display())
+	
+	# Use safer lambda functions with weak references
+	SignalBus.money_changed.connect(func(new_money): 
+		if is_instance_valid(self) and not self.is_queued_for_deletion():
+			update_money_display()
+	)
+	
+	SignalBus.high_scores_updated.connect(func(high_scores): 
+		if is_instance_valid(self) and not self.is_queued_for_deletion():
+			update_high_score_display()
+	)
+	
+	SignalBus.upgrades_changed.connect(func(new_upgrades): 
+		if is_instance_valid(self) and not self.is_queued_for_deletion():
+			update_upgrades_display()
+	)
 
 func setup_input_map() -> void:
 	if not InputMap.has_action("fire"):
@@ -244,7 +259,13 @@ func _on_game_over() -> void:
 	
 	var tween = create_tween()
 	tween.tween_interval(1.5)
-	tween.tween_callback(func(): show_game_over_screen())
+	# Store a weak reference to self
+	var weak_self = weakref(self)
+	tween.tween_callback(func(): 
+		var instance = weak_self.get_ref()
+		if instance:
+			instance.show_game_over_screen()
+	)
 
 func pause_game() -> void:
 	get_tree().paused = true
@@ -321,3 +342,21 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func toggle_store() -> void:
 	scene_manager.change_scene("res://scenes/Store.tscn")
+
+func get_upgrades() -> Dictionary:
+	return upgrades
+	
+func set_upgrades(new_upgrades: Dictionary) -> void:
+	upgrades = new_upgrades
+	print("Game controller received upgrades: ", upgrades)
+	
+	# Inform other nodes about the upgrade
+	SignalBus.emit_upgrades_changed(upgrades)
+
+func update_upgrades_display() -> void:
+	var upgrades_label = get_node_or_null("UpgradesDisplay/UpgradesLabel")
+	if upgrades_label:
+		var upgrade_text = "Upgrades: "
+		for upgrade in upgrades:
+			upgrade_text += upgrade + ": " + str(upgrades[upgrade]) + " "
+		upgrades_label.text = upgrade_text

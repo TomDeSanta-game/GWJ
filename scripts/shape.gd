@@ -29,6 +29,83 @@ func _ready():
 	contact_monitor = true
 	max_contacts_reported = 20
 	
+	# Check position immediately to see if we're at a launcher position
+	call_deferred("check_launcher_position")
+	
+	# Small position adjustment if overlapping with another shape
+	if is_in_group("launcher_shapes"):
+		call_deferred("check_for_overlapping_shapes")
+		
+func check_launcher_position():
+	# Wait one frame so we have accurate position
+	await get_tree().process_frame
+	
+	if is_queued_for_deletion():
+		return
+		
+	# Try to find the launcher using multiple approaches
+	var launcher = null
+	var possible_paths = [
+		"/root/Main/Launcher",
+		"/root/MainNew/Launcher",
+		"/root/Game/Launcher"
+	]
+	
+	for path in possible_paths:
+		launcher = get_node_or_null(path)
+		if launcher:
+			break
+	
+	# If we still don't have a launcher, try searching for it
+	if not launcher:
+		for node in get_tree().get_nodes_in_group("shapes"):
+			var parent = node.get_parent()
+			if parent and "launcher" in parent.name.to_lower():
+				launcher = parent
+				break
+	
+	if launcher and position.distance_to(launcher.position) < 10:
+		# We're at the launcher position, check for other launcher shapes
+		var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
+		if launcher_shapes.size() > 0 and not self in launcher_shapes:
+			print("Extra shape at launcher position detected and removed")
+			queue_free()
+			return
+		
+		# If we're the only shape or already in the group, make sure we're properly tagged
+		if not is_in_group("launcher_shapes"):
+			add_to_group("launcher_shapes")
+
+func check_for_overlapping_shapes():
+	# Wait one frame to allow for proper positioning
+	await get_tree().process_frame
+	
+	# First, check if already queued for deletion
+	if is_queued_for_deletion():
+		return
+	
+	var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
+	if launcher_shapes.size() > 1:
+		var my_index = launcher_shapes.find(self)
+		if my_index > 0:  # Only keep the last shape added
+			print("Shape removing itself due to being extra launcher shape")
+			queue_free()
+			return
+	
+	# Extra check: If there's a launcher node, check distance to it
+	var launcher = get_node_or_null("/root/Main/Launcher") # Try standard path
+	if not launcher:
+		# Try to find launcher by going through all nodes
+		for node in get_tree().get_nodes_in_group("shapes"):
+			var parent = node.get_parent()
+			if parent and "launcher" in parent.name.to_lower():
+				launcher = parent
+				break
+	
+	if launcher and position.distance_to(launcher.position) < 5 and not is_in_group("launcher_shapes"):
+		print("Shape automatically adding itself to launcher_shapes group")
+		add_to_group("launcher_shapes")
+
 func _process(delta):
 	if is_enemy and not launched:
 		move_towards_target(delta)
@@ -347,23 +424,31 @@ func create_pixel_explosion():
 	
 	var flash_tween = particles_parent.create_tween()
 	flash_tween.tween_property(flash, "color:a", 0.0, 0.15)
+	
+	# Use weak references for the flash
+	var weak_flash = weakref(flash)
 	flash_tween.tween_callback(func(): 
-		if is_instance_valid(flash):
-			flash.queue_free()
+		var flash_ref = weak_flash.get_ref()
+		if flash_ref and is_instance_valid(flash_ref) and not flash_ref.is_queued_for_deletion():
+			flash_ref.queue_free()
 	)
 	
-	
+	# Use a safer approach for self deletion
+	var self_weak = weakref(self)
 	var delete_timer = get_tree().create_timer(0.1)
 	delete_timer.timeout.connect(func():
-		if is_instance_valid(self):
-			queue_free()
+		var self_ref = self_weak.get_ref()
+		if self_ref and is_instance_valid(self_ref) and not self_ref.is_queued_for_deletion():
+			self_ref.queue_free()
 	)
 	
-	
+	# Use a weak reference for the particles_parent
+	var weak_particles = weakref(particles_parent)
 	var cleanup_timer = get_tree().create_timer(duration)
 	cleanup_timer.timeout.connect(func(): 
-		if is_instance_valid(particles_parent):
-			particles_parent.queue_free()
+		var particles_ref = weak_particles.get_ref()
+		if particles_ref and is_instance_valid(particles_ref) and not particles_ref.is_queued_for_deletion():
+			particles_ref.queue_free()
 	)
 
 func get_shape_color() -> Color:
