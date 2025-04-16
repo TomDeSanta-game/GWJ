@@ -8,6 +8,8 @@ extends Node
 @export var money_per_shot: int = 10
 @export var high_score_panel_scene: PackedScene
 
+@onready var scene_manager = get_node("/root/SceneManager")
+
 var score: int = 0
 var money: int = 0
 var is_game_over: bool = false
@@ -26,6 +28,8 @@ var backgrounds = [
 	Color(0.7, 0.78, 0.85, 1)   
 ]
 
+var store_scene = null
+
 func _ready() -> void:
 	randomize()
 	setup_input_map()
@@ -35,15 +39,10 @@ func _ready() -> void:
 	update_high_score_display()
 	update_money_display()
 	
-	var store_scene = load("res://scenes/Store.tscn")
-	if store_scene:
-		var store_instance = store_scene.instantiate()
-		store_instance.name = "Store"
-		add_child(store_instance)
-		store_instance.visible = false
-		print("Store instance added successfully")
-	else:
-		print("Failed to load store scene")
+	
+	store_scene = preload("res://scenes/Store.tscn")
+	if not store_scene:
+		pass
 
 func connect_signals() -> void:
 	SignalBus.shapes_popped.connect(_on_shapes_popped)
@@ -318,8 +317,7 @@ func update_money_display() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("open"):
-		print("E key pressed! Changing to store scene...")
-		get_tree().change_scene_to_file("res://scenes/Store.tscn")
+		scene_manager.change_scene("res://scenes/Store.tscn")
 
 func toggle_store() -> void:
-	get_tree().change_scene_to_file("res://scenes/Store.tscn")
+	scene_manager.change_scene("res://scenes/Store.tscn")

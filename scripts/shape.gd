@@ -352,14 +352,14 @@ func create_pixel_explosion():
 			flash.queue_free()
 	)
 	
-	# Queue this shape for deletion safely using a one-shot timer
+	
 	var delete_timer = get_tree().create_timer(0.1)
 	delete_timer.timeout.connect(func():
 		if is_instance_valid(self):
 			queue_free()
 	)
 	
-	# Setup cleanup after animation completes
+	
 	var cleanup_timer = get_tree().create_timer(duration)
 	cleanup_timer.timeout.connect(func(): 
 		if is_instance_valid(particles_parent):

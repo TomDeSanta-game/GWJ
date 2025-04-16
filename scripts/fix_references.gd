@@ -6,5 +6,5 @@ func _init():
 	var new_script = load("res://scripts/main.gd")
 	scene.get_node("Main").set_script(new_script)
 	ResourceSaver.save(scene, scene_path)
-	print("References fixed!")
+	
 	quit() 

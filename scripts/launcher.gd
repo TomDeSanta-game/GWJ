@@ -69,6 +69,21 @@ func update_cooldown(delta):
 			can_launch = true
 			cooldown_timer = 0.0
 		
+			if not has_node("ReadyAnimation"):
+				var ready_node = Node2D.new()
+				ready_node.name = "ReadyAnimation"
+				add_child(ready_node)
+				
+				var crosshair = get_node_or_null("Crosshair")
+				if crosshair:
+					var original_scale = crosshair.scale
+					var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
+					if inner_crosshair:
+						var tween = create_tween()
+						tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.2)
+						tween.tween_property(crosshair, "scale", original_scale, 0.3)
+						tween.tween_callback(func(): ready_node.queue_free())
+		
 		update_cooldown_visual()
 
 func update_aim():
@@ -87,12 +102,6 @@ func update_visuals(delta: float = 0.0):
 		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else crosshair.get_child(0) if crosshair.get_child_count() > 0 else null
 		if inner_crosshair:
 			inner_crosshair.rotation = crosshair_rotation
-			
-			if not has_node("CannotFireAnimation") and not has_node("ReadyAnimation"):
-				if can_launch:
-					inner_crosshair.default_color = Color(0.9, 0.7, 0.4, 0.6)
-				else:
-					inner_crosshair.default_color = Color(0.5, 0.5, 0.5)
 	
 	var reticle = get_node_or_null("LauncherReticle")
 	if reticle:
@@ -113,9 +122,7 @@ func launch_shape():
 			
 			var tween = create_tween()
 			tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.1)
-			tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.3, 1.0, 0.3), 0.1)
 			tween.tween_property(crosshair, "scale", original_scale, 0.2)
-			tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.9, 0.7, 0.4, 0.6), 0.2)
 	
 	if current_shape is RigidBody2D:
 		var old_shape = current_shape
@@ -146,7 +153,7 @@ func launch_shape():
 		
 		SignalBus.emit_shape_launched(old_shape)
 	else:
-		print("Warning: current_shape is not a RigidBody2D")
+		pass
 
 func spawn_current_shape():
 	if current_shape:
@@ -193,16 +200,11 @@ func update_cooldown_visual():
 				var crosshair = get_node_or_null("Crosshair")
 				if crosshair:
 					var original_scale = crosshair.scale
-					var original_color
 					var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
 					if inner_crosshair:
-						original_color = inner_crosshair.default_color
-						
 						var tween = create_tween()
 						tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.2)
-						tween.parallel().tween_property(inner_crosshair, "default_color", Color(1.0, 0.9, 0.3), 0.2)
 						tween.tween_property(crosshair, "scale", original_scale, 0.3)
-						tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.9, 0.7, 0.4, 0.6), 0.3)
 						tween.tween_callback(func(): ready_node.queue_free())
 				
 			core_inner.modulate = Color(1.0, 1.0, 1.0)
@@ -244,12 +246,12 @@ func create_enhanced_crosshair():
 		var angle = 2 * PI * i / num_points
 		points.append(Vector2(cos(angle) * radius, sin(angle) * radius))
 	bg.polygon = points
-	bg.color = Color(0.9, 0.7, 0.4, 0.2)
+	bg.color = Color(0.95, 0.95, 0.95, 0.15)
 	crosshair.add_child(bg)
 	
 	var outer_ring = Line2D.new()
 	outer_ring.width = 1.5
-	outer_ring.default_color = Color(0.9, 0.7, 0.4, 0.6)
+	outer_ring.default_color = Color(0.95, 0.95, 0.95, 0.4)
 	var ring_points = []
 	for i in range(num_points + 1):
 		var angle = 2 * PI * i / num_points
@@ -259,18 +261,18 @@ func create_enhanced_crosshair():
 	
 	var h_line = Line2D.new()
 	h_line.width = 1.5
-	h_line.default_color = Color(0.9, 0.7, 0.4, 0.7)
+	h_line.default_color = Color(0.95, 0.95, 0.95, 0.5)
 	h_line.points = [Vector2(-8, 0), Vector2(8, 0)]
 	crosshair.add_child(h_line)
 	
 	var v_line = Line2D.new()
 	v_line.width = 1.5
-	v_line.default_color = Color(0.9, 0.7, 0.4, 0.7)
+	v_line.default_color = Color(0.95, 0.95, 0.95, 0.5)
 	v_line.points = [Vector2(0, -8), Vector2(0, 8)]
 	crosshair.add_child(v_line)
 	
 	var center_dot = ColorRect.new()
-	center_dot.color = Color(0.9, 0.7, 0.4, 0.9)
+	center_dot.color = Color(0.95, 0.95, 0.95, 0.6)
 	center_dot.size = Vector2(3, 3)
 	center_dot.position = Vector2(-1.5, -1.5)
 	crosshair.add_child(center_dot)
@@ -716,12 +718,12 @@ func _on_shape_bounced(body_node: Node):
 	if body_node is RigidBody2D and body_node.is_in_group("shapes") and body_node.launched:
 		body_node.launched = false
 		
-		# Instead of using the grid, just let the physics engine handle collisions
+		
 		var bounce_force = 80.0
 		var bounce_dir = (body_node.global_position - global_position).normalized()
 		body_node.apply_central_impulse(bounce_dir * bounce_force)
 		
-		# Check for matching shapes nearby
+		
 		check_for_matches(body_node)
 
 func check_for_matches(shape_node):
@@ -782,21 +784,20 @@ func create_score_effect(position: Vector2, count: int):
 	return score_effect
 
 func show_cannot_fire_animation():
-	var crosshair = get_node_or_null("Crosshair")
-	if crosshair and not has_node("CannotFireAnimation"):
-		var cannot_fire = Node2D.new()
-		cannot_fire.name = "CannotFireAnimation"
-		add_child(cannot_fire)
+	if has_node("CannotFireAnimation"):
+		return
 		
+	var cannot_fire = Node2D.new()
+	cannot_fire.name = "CannotFireAnimation"
+	add_child(cannot_fire)
+	
+	var crosshair = get_node_or_null("Crosshair")
+	if crosshair:
 		var original_scale = crosshair.scale
 		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
 		
 		if inner_crosshair:
-			var original_color = inner_crosshair.default_color
-			
 			var tween = create_tween()
 			tween.tween_property(crosshair, "scale", original_scale * 1.5, 0.15)
-			tween.parallel().tween_property(inner_crosshair, "default_color", Color(1.0, 0.3, 0.3), 0.15)
 			tween.tween_property(crosshair, "scale", original_scale, 0.3)
-			tween.parallel().tween_property(inner_crosshair, "default_color", Color(0.5, 0.5, 0.5), 0.3)
 			tween.tween_callback(func(): cannot_fire.queue_free())

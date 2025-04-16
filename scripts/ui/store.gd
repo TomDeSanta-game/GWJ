@@ -2,6 +2,8 @@ extends Control
 
 signal back_pressed
 
+@onready var scene_manager = get_node("/root/SceneManager")
+
 var prices = {
 	"item1": 100,
 	"item2": 150,
@@ -12,22 +14,31 @@ var store_items = []
 var player_money = 0
 
 func _ready():
-	var game_controller = get_node("/root/Main")
+	var game_controller = get_node_or_null("/root/Main")
 	if game_controller:
 		player_money = game_controller.money
 	
-	$StoreContainer/FooterMargin/Footer/BackButton.pressed.connect(_on_back_button_pressed)
+	var back_button = get_node_or_null("StoreContainer/FooterMargin/Footer/BackButton")
+	if back_button:
+		back_button.pressed.connect(_on_back_button_pressed)
+	else:
+		pass
 	
 	update_money_display()
 	
-	store_items = [
-		$StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1,
-		$StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2,
-		$StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3
-	]
+	var item_grid = get_node_or_null("StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid")
+	if item_grid:
+		store_items = [
+			item_grid.get_node_or_null("StoreItem1"),
+			item_grid.get_node_or_null("StoreItem2"),
+			item_grid.get_node_or_null("StoreItem3")
+		]
+		
+		store_items = store_items.filter(func(item): return item != null)
+		
+		setup_price_displays()
+		setup_item_interaction()
 	
-	setup_price_displays()
-	setup_item_interaction()
 	setup_category_buttons()
 	select_category(0)
 
@@ -117,24 +128,22 @@ func _on_item_clicked(item_index):
 		if game_controller:
 			game_controller.money = player_money
 			SignalBus.emit_money_changed(player_money)
-		
-		print("Successfully purchased " + item_key + " for " + str(price) + " coins")
 	else:
-		print("Not enough money to purchase " + item_key + " (need " + str(price) + " coins, have " + str(player_money) + ")")
+		pass
 		
 		tween = create_tween()
 		tween.tween_property(item, "modulate", Color(1.5, 0.5, 0.5), 0.1)
 		tween.tween_property(item, "modulate", Color(1, 1, 1), 0.2)
 
 func _on_back_button_pressed():
-	var back_btn = $StoreContainer/FooterMargin/Footer/BackButton
-	var tween = create_tween()
-	tween.tween_property(back_btn, "modulate", Color(1.5, 1.5, 1.5), 0.1)
-	tween.tween_property(back_btn, "modulate", Color(1, 1, 1), 0.1)
+	var back_btn = get_node_or_null("StoreContainer/FooterMargin/Footer/BackButton")
+	if back_btn:
+		var tween = create_tween()
+		tween.tween_property(back_btn, "modulate", Color(1.5, 1.5, 1.5), 0.1)
+		tween.tween_property(back_btn, "modulate", Color(1, 1, 1), 0.1)
 	
-	emit_signal("back_pressed")
-	get_tree().change_scene_to_file("res://scenes/MainNew.tscn")
+	scene_manager.change_scene("res://scenes/MainNew.tscn", { "pattern": "curtains" })
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("open") or event.is_action_pressed("ui_cancel"):
-		get_tree().change_scene_to_file("res://scenes/MainNew.tscn") 
+		scene_manager.change_scene("res://scenes/MainNew.tscn", { "pattern": "curtains" })
