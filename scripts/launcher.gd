@@ -10,8 +10,9 @@ var can_launch: bool = true
 var cooldown_timer: float = 0.0  
 var aim_direction: Vector2 = Vector2.UP  
 var game_over: bool = false
-var multi_shot_count: int = 1  # Default to 1 shot
-var is_spawning_shape: bool = false # Mutex flag to prevent concurrent spawns
+var multi_shot_count: int = 1
+var is_spawning_shape: bool = false
+var active_crosshair_tween: Tween = null
 
 var launcher_core: Node2D
 var launcher_inner: Node2D
@@ -26,26 +27,40 @@ var launcher_direction: Marker2D
 var trajectory_marker: Node2D
 const MAX_DOTS = 10
 
+var cleanup_timer: Timer = null
+var spawn_timer: Timer = null
+var shape_spawned: bool = false
+
 func _ready():  
 	initialize_launcher()
-	spawn_current_shape()
+	is_spawning_shape = false
+	shape_spawned = false
 	
-	# Connect to the upgrades signal
 	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
 		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
 	
-	# Get initial upgrades from game controller
-	var game_controller = get_node_or_null("/root/Main")
-	if game_controller and game_controller.has_method("get_upgrades"):
-		var upgrades = game_controller.get_upgrades()
-		if upgrades.has("multi_shot"):
-			multi_shot_count = upgrades["multi_shot"]
-			print("Initial multi_shot_count set to: ", multi_shot_count)
+	# DO NOT load save data on game startup
+	# We'll only update when explicitly notified via signal
+	multi_shot_count = 1
+	
+	# Give the scene tree one frame to fully set up, then spawn
+	call_deferred("spawn_shape_instantly")
+	
+	# As a backup, also use a timer to ensure the shape appears
+	var startup_timer = Timer.new()
+	startup_timer.wait_time = 0.05
+	startup_timer.one_shot = true
+	startup_timer.autostart = true
+	add_child(startup_timer)
+	startup_timer.timeout.connect(func(): 
+		if not current_shape or not is_instance_valid(current_shape):
+			spawn_shape_instantly()
+		startup_timer.queue_free()
+	)
 
 func _on_upgrades_changed(upgrades: Dictionary):
 	if upgrades.has("multi_shot"):
 		multi_shot_count = upgrades["multi_shot"]
-		print("Multi-shot updated to: ", multi_shot_count)
 
 func initialize_launcher():
 	ensure_launcher_parts()
@@ -66,6 +81,10 @@ func _process(delta):
 	update_cooldown(delta)
 	update_aim()
 	update_visuals(delta)
+	
+	# Ensure a shape always exists
+	if not current_shape or not is_instance_valid(current_shape):
+		spawn_shape_instantly()
 	
 	if Input.is_action_just_pressed("fire"):
 		if can_launch and current_shape != null:
@@ -95,15 +114,22 @@ func update_cooldown(delta):
 				
 				var crosshair = get_node_or_null("Crosshair")
 				if crosshair:
-					var original_scale = crosshair.scale
+					var original_scale = Vector2(1.0, 1.0)
 					var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
 					if inner_crosshair:
+						if active_crosshair_tween and is_instance_valid(active_crosshair_tween):
+							active_crosshair_tween.kill()
+						
 						var tween = create_tween()
+						active_crosshair_tween = tween
 						tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.2)
 						tween.tween_property(crosshair, "scale", original_scale, 0.3)
 						tween.tween_callback(func():
 							if is_instance_valid(ready_node) and not ready_node.is_queued_for_deletion():
 								ready_node.queue_free()
+								
+							if is_instance_valid(crosshair):
+								crosshair.scale = original_scale
 						)
 		
 		update_cooldown_visual()
@@ -130,12 +156,12 @@ func update_visuals(delta: float = 0.0):
 		reticle.rotation = aim_direction.angle() + PI/2
 
 func launch_shape():
-	if not can_launch or not current_shape:
+	if not can_launch:
 		return
 		
-	# Set spawning flag to false to cancel any ongoing spawn operations
-	is_spawning_shape = false
-	
+	if not current_shape or not is_instance_valid(current_shape):
+		return
+		
 	add_launch_effect()
 	create_launch_flash()
 	
@@ -143,49 +169,48 @@ func launch_shape():
 	if crosshair:
 		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
 		if inner_crosshair:
-			var original_scale = crosshair.scale
+			var original_scale = Vector2(1.0, 1.0)
+			
+			if active_crosshair_tween and is_instance_valid(active_crosshair_tween):
+				active_crosshair_tween.kill()
 			
 			var tween = create_tween()
+			active_crosshair_tween = tween
 			tween.tween_property(crosshair, "scale", original_scale * 1.3, 0.1)
 			tween.tween_property(crosshair, "scale", original_scale, 0.2)
+			
+			tween.finished.connect(func(): 
+				if is_instance_valid(crosshair):
+					crosshair.scale = original_scale
+			)
 	
-	# Print the current multi_shot_count to debug
-	print("Launching with multi_shot_count: ", multi_shot_count)
-	
-	# Get the last shape that was launched for signal
 	var last_launched_shape = null
-	
-	# Store and clear the original shape
 	var original_shape = current_shape
 	current_shape = null
+	shape_spawned = false
 	
-	# Launch multiple shapes based on multi_shot_count
 	for i in range(multi_shot_count):
 		var shot_shape = null
 		
 		if i == 0 and original_shape and is_instance_valid(original_shape):
-			# Use the original shape for the first shot
 			shot_shape = original_shape
 			if shot_shape.is_in_group("launcher_shapes"):
 				shot_shape.remove_from_group("launcher_shapes")
 		else:
-			# Create additional shapes for multi-shot
 			shot_shape = shape_scene.instantiate()
 			shot_shape.shape_type = randi() % 3
 			shot_shape.color = randi() % 6
 			get_parent().add_child(shot_shape)
 			shot_shape.position = position
 			
-			# Force the additional shapes to be properly initialized
 			shot_shape.initialize_shape()
 		
 		if shot_shape and is_instance_valid(shot_shape):
 			last_launched_shape = shot_shape
 			
-			# Calculate spread angle for multiple shots
 			var spread_angle = 0.0
 			if multi_shot_count > 1:
-				spread_angle = (i - (multi_shot_count - 1) / 2.0) * 0.15  # Increased spread angle
+				spread_angle = (i - (multi_shot_count - 1) / 2.0) * 0.15
 			
 			var shot_direction = aim_direction.rotated(spread_angle)
 			
@@ -206,80 +231,21 @@ func launch_shape():
 				shot_shape.launched = true
 				
 			shot_shape.apply_torque_impulse(randf_range(-10000, 10000))
-			
-			# Debug print for each shape launched
-			print("Launched shape ", i+1, " of ", multi_shot_count)
 	
 	can_launch = false
 	cooldown_timer = cooldown_time
 	
-	# Wait until we've finished launching before spawning a new shape
-	await get_tree().process_frame
-	
-	spawn_current_shape()
+	# Spawn new shape instantly
+	spawn_shape_instantly()
 	
 	if last_launched_shape:
 		SignalBus.emit_shape_launched(last_launched_shape)
 
+func start_spawn_sequence():
+	spawn_shape_instantly()
+
 func spawn_current_shape():
-	# If we're already spawning a shape, don't start another spawn
-	if is_spawning_shape:
-		print("Prevented concurrent shape spawn")
-		return
-		
-	is_spawning_shape = true
-	
-	# First, clean up the current shape
-	if current_shape and is_instance_valid(current_shape):
-		current_shape.queue_free()
-		current_shape = null
-	
-	# Then, forcefully clean up ALL launcher shapes - more aggressive cleanup
-	var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
-	for shape in launcher_shapes:
-		if is_instance_valid(shape):
-			shape.queue_free()
-	
-	# Wait for a frame to ensure cleanup is complete
-	await get_tree().process_frame
-	
-	# Final check for any shapes at the launcher position
-	var all_shapes = get_tree().get_nodes_in_group("shapes")
-	for shape in all_shapes:
-		if is_instance_valid(shape) and shape.position.distance_to(position) < 20:
-			shape.queue_free()
-	
-	# Wait again to ensure all cleanups have processed
-	await get_tree().process_frame
-	
-	# Only continue if we're still supposed to be spawning
-	# (check if something canceled the spawning while we were waiting)
-	if !is_spawning_shape:
-		return
-	
-	# Create a new shape
-	var shape = shape_scene.instantiate() 
-	shape.shape_type = randi() % 3
-	shape.color = randi() % 6
-	shape.freeze = true
-	shape.add_to_group("launcher_shapes")
-	
-	var glow = ColorRect.new()
-	glow.color = Color(1, 0.9, 0.7, 0.2)
-	glow.size = Vector2(60, 60)
-	glow.position = Vector2(-30, -30)
-	glow.z_index = -1
-	shape.add_child(glow)
-	
-	# Add shape directly
-	get_parent().add_child(shape)
-	shape.position = position
-	
-	current_shape = shape
-	
-	# Brief delay to ensure the shape is fully setup before allowing another spawn
-	await get_tree().create_timer(0.05).timeout
-	is_spawning_shape = false
+	spawn_shape_instantly()
 
 func update_cooldown_visual():
 	var base = get_node_or_null("LauncherCore")
@@ -344,6 +310,8 @@ func create_enhanced_crosshair():
 	var crosshair = Node2D.new()
 	crosshair.name = "Crosshair"
 	add_child(crosshair)
+	
+	crosshair.scale = Vector2(1.0, 1.0)
 	
 	var bg = Polygon2D.new()
 	var num_points = 16
@@ -900,11 +868,54 @@ func show_cannot_fire_animation():
 	
 	var crosshair = get_node_or_null("Crosshair")
 	if crosshair:
-		var original_scale = crosshair.scale
+		var original_scale = Vector2(1.0, 1.0)
 		var inner_crosshair = crosshair.get_child(1) if crosshair.get_child_count() > 1 else null
 		
 		if inner_crosshair:
+			if active_crosshair_tween and is_instance_valid(active_crosshair_tween):
+				active_crosshair_tween.kill()
+			
 			var tween = create_tween()
+			active_crosshair_tween = tween
 			tween.tween_property(crosshair, "scale", original_scale * 1.5, 0.15)
 			tween.tween_property(crosshair, "scale", original_scale, 0.3)
-			tween.tween_callback(func(): cannot_fire.queue_free())
+			tween.tween_callback(func(): 
+				if is_instance_valid(cannot_fire) and not cannot_fire.is_queued_for_deletion():
+					cannot_fire.queue_free()
+					
+				if is_instance_valid(crosshair):
+					crosshair.scale = original_scale
+			)
+
+# Completely synchronous, instantaneous shape spawning
+func spawn_shape_instantly():
+	# Emergency cleanup of any existing shapes
+	if current_shape and is_instance_valid(current_shape):
+		current_shape.queue_free()
+		current_shape = null
+	
+	var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
+	for shape in launcher_shapes:
+		if is_instance_valid(shape):
+			shape.queue_free()
+	
+	# Create new shape immediately
+	var shape = shape_scene.instantiate() 
+	shape.shape_type = randi() % 3
+	shape.color = randi() % 6
+	shape.freeze = true
+	shape.add_to_group("launcher_shapes")
+	
+	var glow = ColorRect.new()
+	glow.color = Color(1, 0.9, 0.7, 0.2)
+	glow.size = Vector2(60, 60)
+	glow.position = Vector2(-30, -30)
+	glow.z_index = -1
+	shape.add_child(glow)
+	
+	var parent = get_parent()
+	if parent:
+		parent.add_child(shape)
+		shape.position = position
+		current_shape = shape
+		shape_spawned = true

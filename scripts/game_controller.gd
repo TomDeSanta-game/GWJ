@@ -9,6 +9,7 @@ extends Node
 @export var high_score_panel_scene: PackedScene
 
 @onready var scene_manager = get_node("/root/SceneManager")
+@onready var high_score_manager = get_node("/root/HighScoreManager")
 
 var score: int = 0
 var money: int = 0
@@ -29,10 +30,15 @@ var backgrounds = [
 	Color(0.7, 0.78, 0.85, 1)   
 ]
 
+var store_instance = null
 var store_scene = null
 
 func _ready() -> void:
 	randomize()
+	
+	money = 0
+	upgrades = {"multi_shot": 1}
+	
 	setup_input_map()
 	connect_signals()
 	spawn_initial_enemies()
@@ -40,10 +46,9 @@ func _ready() -> void:
 	update_high_score_display()
 	update_money_display()
 	
+	create_simple_store()
 	
-	store_scene = preload("res://scenes/Store.tscn")
-	if not store_scene:
-		pass
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 func connect_signals() -> void:
 	SignalBus.shapes_popped.connect(_on_shapes_popped)
@@ -54,6 +59,7 @@ func connect_signals() -> void:
 	# Use safer lambda functions with weak references
 	SignalBus.money_changed.connect(func(new_money): 
 		if is_instance_valid(self) and not self.is_queued_for_deletion():
+			money = new_money
 			update_money_display()
 	)
 	
@@ -64,6 +70,7 @@ func connect_signals() -> void:
 	
 	SignalBus.upgrades_changed.connect(func(new_upgrades): 
 		if is_instance_valid(self) and not self.is_queued_for_deletion():
+			upgrades = new_upgrades
 			update_upgrades_display()
 	)
 
@@ -81,12 +88,17 @@ func setup_input_map() -> void:
 		key_event.pressed = true
 		InputMap.action_add_event("fire", key_event)
 	
-	if not InputMap.has_action("open"):
-		InputMap.add_action("open")
-		var open_key = InputEventKey.new()
-		open_key.keycode = KEY_E
-		open_key.pressed = true
-		InputMap.action_add_event("open", open_key)
+	# Always recreate "open" action to ensure it's properly set up
+	if InputMap.has_action("open"):
+		InputMap.erase_action("open")
+		
+	InputMap.add_action("open")
+	var open_key = InputEventKey.new()
+	open_key.keycode = KEY_E
+	open_key.pressed = true
+	InputMap.action_add_event("open", open_key)
+	
+	print("Input actions set up. Actions: ", InputMap.get_actions())
 
 func _process(delta: float) -> void:
 	if is_game_over:
@@ -94,6 +106,9 @@ func _process(delta: float) -> void:
 		
 	handle_enemy_spawning(delta)
 	update_difficulty(delta)
+	
+	if Input.is_action_just_pressed("open"):
+		toggle_store_direct()
 
 func update_difficulty(delta: float) -> void:
 	game_difficulty += delta * 0.01
@@ -124,12 +139,18 @@ func setup_level_visuals(level: int) -> void:
 	spawn_timer = max(1.5 - (level * 0.1), 0.5)
 
 func spawn_initial_enemies() -> void:
+	var screen_center_x = 550
 	for i in range(3):
-		var x_pos = 150 + i * 170
+		var offset = (i - 1) * 100
+		var x_pos = screen_center_x + offset
 		var spawn_pos = Vector2(x_pos, -50 - i * 40)
 		
 		var shape := shape_scene.instantiate()
 		shape.position = spawn_pos
+		
+		shape.shape_type = i % 3
+		shape.color = randi() % 6
+		
 		configure_enemy(shape)
 		add_child(shape)
 		
@@ -150,6 +171,9 @@ func spawn_enemy() -> void:
 	var spawn_pos := find_suitable_spawn_position()
 	shape.position = spawn_pos
 	
+	shape.shape_type = randi() % 3  # Random shape: 0=SQUARE, 1=CIRCLE, 2=TRIANGLE
+	shape.color = randi() % 6       # Random color: 0=RED, 1=BLUE, etc.
+	
 	configure_enemy(shape)
 	
 	add_child(shape)
@@ -158,7 +182,9 @@ func find_suitable_spawn_position() -> Vector2:
 	var min_spacing := 150.0
 	var max_attempts := 25
 	var attempts := 0
-	var x_pos := randf_range(70, 570)
+	var screen_center_x = 550
+	var spawn_width = 200
+	var x_pos := randf_range(screen_center_x - spawn_width/2, screen_center_x + spawn_width/2)
 	var spawn_pos := Vector2(x_pos, -50)
 	
 	var enemies = get_tree().get_nodes_in_group("Enemies")
@@ -174,7 +200,7 @@ func find_suitable_spawn_position() -> Vector2:
 		if not too_close or enemies.size() == 0:
 			break
 			
-		x_pos = 70 + (570 - 70) * (float(attempts) / float(max_attempts - 1))
+		x_pos = screen_center_x + ((-spawn_width/2) + (spawn_width * (float(attempts) / float(max_attempts - 1))))
 		spawn_pos = Vector2(x_pos, -50)
 		attempts += 1
 		
@@ -187,7 +213,8 @@ func configure_enemy(enemy) -> void:
 	enemy.add_to_group("Enemies")
 	enemy.add_to_group("shapes")
 	enemy.is_enemy = true
-	enemy.target_position = Vector2(320, 720)
+	var screen_center_x = 550
+	enemy.target_position = Vector2(screen_center_x, 720)
 	enemy.move_speed = enemy_speed
 	
 	if level_number > 3 and randf() < 0.2:
@@ -336,21 +363,40 @@ func update_money_display() -> void:
 						shine_tween.tween_property(shine, "scale", Vector2(0.5, 0.5), 0.3)
 						shine_tween.tween_property(shine, "scale", Vector2(0.3, 0.3), 0.3)
 
-func _unhandled_input(event: InputEvent) -> void:
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_X or event.keycode == KEY_P:
+			toggle_store_direct()
+		
 	if event.is_action_pressed("open"):
-		scene_manager.change_scene("res://scenes/Store.tscn")
+		toggle_store_direct()
 
-func toggle_store() -> void:
-	scene_manager.change_scene("res://scenes/Store.tscn")
+func update_pause_state():
+	var store = $CanvasLayer/StoreControl
+	if store:
+		get_tree().paused = store.visible
+	else:
+		get_tree().paused = false
+
+func toggle_store_direct() -> void:
+	if store_instance and is_instance_valid(store_instance):
+		if high_score_manager:
+			high_score_manager.set_player_money(money)
+			high_score_manager.set_player_upgrades(upgrades)
+			
+		store_instance.visible = !store_instance.visible
+		get_tree().paused = store_instance.visible
+	else:
+		create_simple_store()
+		if store_instance:
+			store_instance.visible = true
+			get_tree().paused = true
 
 func get_upgrades() -> Dictionary:
 	return upgrades
 	
 func set_upgrades(new_upgrades: Dictionary) -> void:
 	upgrades = new_upgrades
-	print("Game controller received upgrades: ", upgrades)
-	
-	# Inform other nodes about the upgrade
 	SignalBus.emit_upgrades_changed(upgrades)
 
 func update_upgrades_display() -> void:
@@ -360,3 +406,10 @@ func update_upgrades_display() -> void:
 		for upgrade in upgrades:
 			upgrade_text += upgrade + ": " + str(upgrades[upgrade]) + " "
 		upgrades_label.text = upgrade_text
+
+func create_simple_store():
+	store_scene = preload("res://scenes/Store.tscn")
+	if store_scene:
+		store_instance = store_scene.instantiate()
+		store_instance.visible = false
+		$CanvasLayer.add_child(store_instance)

@@ -28,18 +28,15 @@ func find_game_controller():
 	for path in possible_paths:
 		var node = get_node_or_null(path)
 		if node and (node.has_method("get_upgrades") or has_property(node, "money") or has_property(node, "upgrades")):
-			print("Found game controller at: ", path)
 			return node
 	
 	# If not found by path, try to find by searching current scene
 	var current_scene = get_tree().current_scene
 	if current_scene:
-		print("Current scene is: ", current_scene.name)
 		# If the current scene itself has the required methods
 		if current_scene.has_method("get_upgrades") or has_property(current_scene, "money"):
 			return current_scene
 	
-	print("Could not find game controller by any method")
 	return null
 
 # Helper function to check if a node has a property
@@ -48,20 +45,21 @@ func has_property(node: Node, property_name: String) -> bool:
 	return property_name in node
 
 func _ready():
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	
 	var game_controller = find_game_controller()
 	if game_controller:
 		player_money = game_controller.money
-		# Load existing upgrades if available
 		if game_controller.has_method("get_upgrades"):
 			player_upgrades = game_controller.get_upgrades()
 		else:
-			player_upgrades = {"multi_shot": 1}  # Default to 1 shot
+			player_upgrades = {"multi_shot": 1}
 	
 	var back_button = get_node_or_null("StoreContainer/FooterMargin/Footer/BackButton")
 	if back_button:
+		if back_button.pressed.is_connected(_on_back_button_pressed):
+			back_button.pressed.disconnect(_on_back_button_pressed)
 		back_button.pressed.connect(_on_back_button_pressed)
-	else:
-		pass
 	
 	update_money_display()
 	
@@ -81,7 +79,6 @@ func _ready():
 	setup_category_buttons()
 	select_category(0)
 	
-	# Update item descriptions based on owned upgrades
 	update_item_descriptions()
 
 func update_money_display():
@@ -178,7 +175,6 @@ func _on_item_clicked(item_index):
 				
 				# Increase multi_shot count
 				player_upgrades["multi_shot"] += 1
-				print("Multi-shot upgraded to: ", player_upgrades["multi_shot"])
 				
 				# Update game controller with new upgrades
 				if game_controller.has_method("set_upgrades"):
@@ -210,8 +206,22 @@ func _on_back_button_pressed():
 		tween.tween_property(back_btn, "modulate", Color(1.5, 1.5, 1.5), 0.1)
 		tween.tween_property(back_btn, "modulate", Color(1, 1, 1), 0.1)
 	
-	scene_manager.change_scene("res://scenes/MainNew.tscn", { "pattern": "curtains" })
+	hide_store()
 
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("open") or event.is_action_pressed("ui_cancel"):
-		scene_manager.change_scene("res://scenes/MainNew.tscn", { "pattern": "curtains" })
+func _input(event):
+	if visible and (event.is_action_pressed("open") or event.is_action_pressed("ui_cancel")):
+		hide_store()
+		get_viewport().set_input_as_handled()
+		
+func hide_store():
+	visible = false
+	
+	var parent = get_parent()
+	if parent:
+		parent.visible = false
+	
+	var game_controller = find_game_controller()
+	if game_controller and game_controller.has_method("update_pause_state"):
+		game_controller.update_pause_state()
+	else:
+		get_tree().paused = false

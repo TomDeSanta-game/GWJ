@@ -29,52 +29,9 @@ func _ready():
 	contact_monitor = true
 	max_contacts_reported = 20
 	
-	# Check position immediately to see if we're at a launcher position
-	call_deferred("check_launcher_position")
-	
-	# Small position adjustment if overlapping with another shape
+	# Only perform launcher checks if explicitly put in the launcher_shapes group
 	if is_in_group("launcher_shapes"):
 		call_deferred("check_for_overlapping_shapes")
-		
-func check_launcher_position():
-	# Wait one frame so we have accurate position
-	await get_tree().process_frame
-	
-	if is_queued_for_deletion():
-		return
-		
-	# Try to find the launcher using multiple approaches
-	var launcher = null
-	var possible_paths = [
-		"/root/Main/Launcher",
-		"/root/MainNew/Launcher",
-		"/root/Game/Launcher"
-	]
-	
-	for path in possible_paths:
-		launcher = get_node_or_null(path)
-		if launcher:
-			break
-	
-	# If we still don't have a launcher, try searching for it
-	if not launcher:
-		for node in get_tree().get_nodes_in_group("shapes"):
-			var parent = node.get_parent()
-			if parent and "launcher" in parent.name.to_lower():
-				launcher = parent
-				break
-	
-	if launcher and position.distance_to(launcher.position) < 10:
-		# We're at the launcher position, check for other launcher shapes
-		var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
-		if launcher_shapes.size() > 0 and not self in launcher_shapes:
-			print("Extra shape at launcher position detected and removed")
-			queue_free()
-			return
-		
-		# If we're the only shape or already in the group, make sure we're properly tagged
-		if not is_in_group("launcher_shapes"):
-			add_to_group("launcher_shapes")
 
 func check_for_overlapping_shapes():
 	# Wait one frame to allow for proper positioning
@@ -84,27 +41,16 @@ func check_for_overlapping_shapes():
 	if is_queued_for_deletion():
 		return
 	
+	# Only check for other launcher shapes, don't try to find the launcher
 	var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
 	if launcher_shapes.size() > 1:
-		var my_index = launcher_shapes.find(self)
-		if my_index > 0:  # Only keep the last shape added
-			print("Shape removing itself due to being extra launcher shape")
+		# Sort shapes by creation time (older shapes have lower instance IDs)
+		launcher_shapes.sort_custom(func(a, b): return a.get_instance_id() < b.get_instance_id())
+		
+		# Keep the oldest shape (first in the sorted array)
+		if self != launcher_shapes[0]:
 			queue_free()
 			return
-	
-	# Extra check: If there's a launcher node, check distance to it
-	var launcher = get_node_or_null("/root/Main/Launcher") # Try standard path
-	if not launcher:
-		# Try to find launcher by going through all nodes
-		for node in get_tree().get_nodes_in_group("shapes"):
-			var parent = node.get_parent()
-			if parent and "launcher" in parent.name.to_lower():
-				launcher = parent
-				break
-	
-	if launcher and position.distance_to(launcher.position) < 5 and not is_in_group("launcher_shapes"):
-		print("Shape automatically adding itself to launcher_shapes group")
-		add_to_group("launcher_shapes")
 
 func _process(delta):
 	if is_enemy and not launched:

@@ -50,11 +50,10 @@ shape_scene = ExtResource("4_77nxu")
 high_score_panel_scene = ExtResource("5_r3w1c")
 
 [node name="Background" type="TextureRect" parent="."]
-offset_left = -398.0
-offset_top = -262.0
-offset_right = 1038.0
-offset_bottom = 938.0
+offset_right = 1152.0
+offset_bottom = 650.0
 texture = SubResource("GradientTexture2D_e32x8")
+expand_mode = 1
 stretch_mode = 1
 
 [node name="AnimationIcons" type="Node" parent="."]
@@ -65,7 +64,7 @@ wait_time = 3.0
 autostart = true
 
 [node name="Launcher" type="Node2D" parent="."]
-position = Vector2(320, 720)
+position = Vector2(597, 580)
 script = ExtResource("3_1e6a1")
 shape_scene = ExtResource("4_77nxu")
 launch_speed = 1200.0
@@ -142,7 +141,7 @@ width = 3.0
 default_color = Color(0.8, 0.95, 1, 0.7)
 
 [node name="ScoreDisplay" type="Node2D" parent="."]
-position = Vector2(320, 830)
+position = Vector2(597, 680)
 
 [node name="ScoreBackground" type="Panel" parent="ScoreDisplay"]
 offset_left = -250.0
@@ -228,7 +227,7 @@ text = "SCORE: 0"
 vertical_alignment = 1
 
 [node name="HighScoreDisplay" type="Node2D" parent="."]
-position = Vector2(-245, 20)
+position = Vector2(158, 38)
 scale = Vector2(1.2, 1.2)
 
 [node name="HighScoreBackground" type="Panel" parent="HighScoreDisplay"]
@@ -292,7 +291,7 @@ text = "HIGH: 0"
 vertical_alignment = 1
 
 [node name="CurrentScoreDisplay" type="Node2D" parent="."]
-position = Vector2(-245, 80)
+position = Vector2(158, 92)
 scale = Vector2(1.2, 1.2)
 
 [node name="CurrentScoreBackground" type="Panel" parent="CurrentScoreDisplay"]
@@ -370,7 +369,7 @@ text = "SCORE: 0"
 vertical_alignment = 1
 
 [node name="MoneyDisplay" type="Node2D" parent="."]
-position = Vector2(-245, 140)
+position = Vector2(158, 147)
 scale = Vector2(1.2, 1.2)
 
 [node name="MoneyBackground" type="Panel" parent="MoneyDisplay"]
@@ -421,11 +420,12 @@ text = "MONEY: $0"
 vertical_alignment = 1
 
 [node name="MainCamera" type="Camera2D" parent="."]
-position = Vector2(320, 400)
-zoom = Vector2(0.8, 0.8)
+position = Vector2(576, 324)
 position_smoothing_enabled = true
 position_smoothing_speed = 4.0
 editor_draw_limits = true
 editor_draw_drag_margin = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [connection signal="timeout" from="AnimationIcons/IconAnimationTimer" to="AnimationIcons" method="_on_icon_animation_timer_timeout"]
