@@ -19,8 +19,8 @@ config/icon="res://icon.png"
 
 SignalBus="*res://scripts/signal_bus.gd"
 SoundManager="*res://addons/sound_manager/sound_manager.gd"
-HighScoreManager="*res://scripts/high_score_manager.gd"
 SceneManager="*res://addons/scene_manager/SceneManager.tscn"
+Log="*res://addons/logger/logger.gd"
 
 [debug]
 
@@ -34,7 +34,7 @@ window/stretch/aspect="expand"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/scene_manager/plugin.cfg", "res://addons/sound_manager/plugin.cfg")
+enabled=PackedStringArray("res://addons/logger/plugin.cfg", "res://addons/scene_manager/plugin.cfg", "res://addons/sound_manager/plugin.cfg")
 
 [input]
 

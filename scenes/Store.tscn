@@ -1,22 +1,23 @@
 [gd_scene load_steps=6 format=3 uid="uid://doaqvupbr68d8"]
 
 [ext_resource type="Script" uid="uid://dtbntu6fh18t6" path="res://scripts/ui/store.gd" id="1_g5qnm"]
-[ext_resource type="FontFile" uid="uid://bvpkiixsiu7sf" path="res://assets/fonts/Futura/Futura Bold font.ttf" id="2_aytv7"]
-[ext_resource type="FontFile" uid="uid://cm38a4fghxt08" path="res://assets/fonts/Futura/futura medium bt.ttf" id="3_bsfl3"]
+[ext_resource type="FontFile" uid="uid://bsrs5fwwpc2eo" path="res://assets/fonts/pixel_font.ttf" id="2_pixel"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
 bg_color = Color(0.25, 0.25, 0.25, 0.8)
-border_width_left = 1
-border_width_top = 1
-border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.8, 0.8, 0.8, 0.3)
-corner_radius_top_left = 10
-corner_radius_top_right = 10
-corner_radius_bottom_right = 10
-corner_radius_bottom_left = 10
-shadow_color = Color(0, 0, 0, 0.301961)
-shadow_size = 8
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.8, 0.8, 0.8, 0.4)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 4
+shadow_offset = Vector2(2, 2)
+anti_aliasing = false
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2"]
 bg_color = Color(0.35, 0.35, 0.35, 0.9)
@@ -25,13 +26,30 @@ border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
 border_color = Color(0.9, 0.9, 0.9, 0.5)
-corner_radius_top_left = 15
-corner_radius_top_right = 15
-corner_radius_bottom_right = 15
-corner_radius_bottom_left = 15
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
 shadow_color = Color(0, 0, 0, 0.3)
-shadow_size = 4
-shadow_offset = Vector2(0, 2)
+shadow_size = 2
+shadow_offset = Vector2(2, 2)
+anti_aliasing = false
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3"]
+bg_color = Color(0.4, 0.4, 0.4, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.6)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
+shadow_color = Color(0, 0, 0, 0.3)
+shadow_size = 2
+shadow_offset = Vector2(2, 2)
+anti_aliasing = false
 
 [node name="root" type="Control"]
 layout_mode = 3
@@ -71,7 +89,7 @@ theme_override_constants/separation = 20
 [node name="StoreTitle" type="Label" parent="StoreContainer/HeaderMargin/Header"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 32
 text = "STORE"
 
@@ -88,14 +106,14 @@ theme_override_constants/separation = 10
 [node name="CoinLabel" type="Label" parent="StoreContainer/HeaderMargin/Header/CoinDisplay"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 24
 text = "COINS:"
 
 [node name="CoinAmount" type="Label" parent="StoreContainer/HeaderMargin/Header/CoinDisplay"]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 24
 text = "0"
 
@@ -126,6 +144,7 @@ custom_minimum_size = Vector2(120, 50)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+theme_override_styles/hover = SubResource("StyleBoxFlat_3")
 flat = true
 
 [node name="CategoryLabel1" type="Label" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories/Category1"]
@@ -136,7 +155,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 0.9)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "SHAPES"
 horizontal_alignment = 1
@@ -147,6 +166,7 @@ custom_minimum_size = Vector2(120, 50)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+theme_override_styles/hover = SubResource("StyleBoxFlat_3")
 flat = true
 
 [node name="CategoryLabel2" type="Label" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories/Category2"]
@@ -157,7 +177,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "UPGRADES"
 horizontal_alignment = 1
@@ -168,6 +188,7 @@ custom_minimum_size = Vector2(120, 50)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
+theme_override_styles/hover = SubResource("StyleBoxFlat_3")
 flat = true
 
 [node name="CategoryLabel3" type="Label" parent="StoreContainer/CategoryMargin/CategoriesPanel/Categories/Category3"]
@@ -178,7 +199,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "SPECIALS"
 horizontal_alignment = 1
@@ -232,7 +253,7 @@ offset_right = 80.0
 offset_bottom = 45.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 20
 text = "Multi-Shot"
 horizontal_alignment = 1
@@ -251,7 +272,7 @@ offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
-theme_override_fonts/font = ExtResource("3_bsfl3")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 16
 text = "Fire an additional shape each time"
 horizontal_alignment = 1
@@ -276,16 +297,16 @@ alignment = 1
 [node name="PriceLabel" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1/PriceContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "PRICE:"
 
 [node name="PriceAmount" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1/PriceContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
-text = "500"
+text = "50"
 
 [node name="BuyButton" type="Button" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem1"]
 visible = false
@@ -321,9 +342,9 @@ offset_right = 80.0
 offset_bottom = 45.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 20
-text = "Triple Shot"
+text = "Launch Speed"
 horizontal_alignment = 1
 
 [node name="ItemDescription" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2"]
@@ -340,9 +361,9 @@ offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
-theme_override_fonts/font = ExtResource("3_bsfl3")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 16
-text = "Fire three shapes at once"
+text = "Increase projectile velocity"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
@@ -365,16 +386,16 @@ alignment = 1
 [node name="PriceLabel" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2/PriceContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "PRICE:"
 
 [node name="PriceAmount" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2/PriceContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
-text = "150"
+text = "100"
 
 [node name="BuyButton" type="Button" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem2"]
 visible = false
@@ -410,9 +431,9 @@ offset_right = 80.0
 offset_bottom = 45.0
 grow_horizontal = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 20
-text = "Health Boost"
+text = "Fast Reload"
 horizontal_alignment = 1
 
 [node name="ItemDescription" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3"]
@@ -429,9 +450,9 @@ offset_bottom = 30.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
-theme_override_fonts/font = ExtResource("3_bsfl3")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 16
-text = "Survive one extra enemy hit"
+text = "Reduce reload time"
 horizontal_alignment = 1
 vertical_alignment = 1
 autowrap_mode = 2
@@ -454,14 +475,14 @@ alignment = 1
 [node name="PriceLabel" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3/PriceContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "PRICE:"
 
 [node name="PriceAmount" type="Label" parent="StoreContainer/ItemsMargin/ItemsPanel/PanelMargin/ItemGrid/StoreItem3/PriceContainer"]
 layout_mode = 2
 theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 18
 text = "200"
 
@@ -501,9 +522,9 @@ size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
 theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 0.9)
-theme_override_fonts/font = ExtResource("2_aytv7")
+theme_override_fonts/font = ExtResource("2_pixel")
 theme_override_font_sizes/font_size = 22
-theme_override_styles/hover = SubResource("StyleBoxFlat_2")
+theme_override_styles/hover = SubResource("StyleBoxFlat_3")
 theme_override_styles/normal = SubResource("StyleBoxFlat_1")
 text = "BACK TO GAME"
 flat = true

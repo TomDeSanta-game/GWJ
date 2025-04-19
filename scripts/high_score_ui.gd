@@ -27,13 +27,13 @@ func _on_high_scores_updated(updated_high_scores):
 	high_scores = updated_high_scores
 	update_high_score_list()
 
-func _on_new_high_score(score, position):
+func _on_new_high_score(score, pos):
 	is_new_high_score = true
-	score_position = position
+	score_position = pos
 	
 	var position_label = get_node_or_null("YourScorePosition")
 	if position_label:
-		position_label.text = "YOUR SCORE IS #" + str(position)
+		position_label.text = "YOUR SCORE IS #" + str(pos)
 		position_label.visible = true
 	
 	var current_score_label = get_node_or_null("CurrentScore")

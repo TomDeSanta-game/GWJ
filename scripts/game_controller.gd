@@ -1,14 +1,28 @@
 extends Node
 
+@onready var Log = get_node("/root/Log")
+
 @export var shape_scene: PackedScene
 @export var spawn_timer: float = 1.5
 @export var max_score_width: float = 300.0
-@export var game_difficulty: float = 1.0
-@export var money_per_hit: int = 25
-@export var money_per_shot: int = 10
+@export var game_difficulty: float = 2.0
+@export var money_per_hit: int = 10
+@export var money_per_shot: int = 5
 @export var high_score_panel_scene: PackedScene
 
 @onready var scene_manager = get_node("/root/SceneManager")
+@onready var score_fill = get_node_or_null("ScoreDisplay/ScoreFill")
+@onready var score_label = get_node_or_null("ScoreDisplay/ScoreLabel")
+@onready var current_score_label = get_node_or_null("CurrentScoreDisplay/CurrentScoreLabel")
+@onready var high_score_label = get_node_or_null("HighScoreDisplay/HighScoreLabel") 
+@onready var crown_icon = get_node_or_null("HighScoreDisplay/CrownIcon")
+@onready var money_label = get_node_or_null("MoneyDisplay/MoneyLabel")
+@onready var coin_icon = get_node_or_null("MoneyDisplay/CoinIcon")
+@onready var upgrades_label = get_node_or_null("UpgradesDisplay/UpgradesLabel")
+@onready var coin_shine = coin_icon.get_node_or_null("CoinShine") if coin_icon else null
+@onready var launcher = get_node_or_null("Launcher")
+@onready var canvas_layer = $CanvasLayer
+@onready var background = $Background as TextureRect
 @onready var high_score_manager = get_node("/root/HighScoreManager")
 
 var score: int = 0
@@ -16,65 +30,95 @@ var money: int = 0
 var is_game_over: bool = false
 var level_number: int = 1
 var shapes_destroyed: int = 0
-var shapes_for_next_level: int = 20
-var upgrades = {"multi_shot": 1}  # Player upgrades, default to 1 shot
+var shapes_for_next_level: int = 15
+var upgrades = {}
+var game_running: bool = false
 
 var enemy_speed: float = 80.0
 var time_since_last_spawn: float = 0.0
 
-var backgrounds = [
-	Color(0.92, 0.95, 0.98, 1), 
-	Color(0.85, 0.91, 0.98, 1),  
-	Color(0.94, 0.82, 0.75, 1),  
-	Color(0.85, 0.72, 0.85, 1),  
-	Color(0.7, 0.78, 0.85, 1)   
-]
-
 var store_instance = null
 var store_scene = null
+var store_visible = false
 
-func _ready() -> void:
-	randomize()
+var launcher_path = ""
+
+var game_scene: Node
+
+var current_min_difficulty: float = 0.0
+var current_max_difficulty: float = 0.0
+var current_difficulty: float = 0.0 
+
+var spawn_positions: Array[Vector2] = []
+var despawn_position_y: float = 0.0
+
+var score_multiplier: float = 1.0
+
+var total_score_this_game: float = 0.0
+var current_shapes: Array = []
+
+var temp_in_store: bool = false
+
+func _ready():
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	game_running = true
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	
-	money = 0
-	upgrades = {"multi_shot": 1}
+	# Get money and upgrades from high score manager
+	money = high_score_manager.get_player_money()
+	upgrades = high_score_manager.get_player_upgrades().duplicate()
+	
+	if launcher:
+		Log.debug("GC: _ready called, launcher reference: " + str(launcher != null))
+		launcher_path = launcher.get_path()
+		Log.debug("GC: launcher node path: " + str(launcher.get_path()))
+		Log.debug("GC: launcher script instance_id: " + str(launcher.get_instance_id()))
+		
+		if "multi_shot_count" in launcher:
+			launcher.multi_shot_count = upgrades.get("multi_shot", 1)
+			Log.debug("GC: Setting initial multi_shot_count to: " + str(launcher.multi_shot_count))
+	else:
+		Log.debug("GC: launcher is null!")
+	
+	SignalBus.game_over_triggered.connect(_on_game_ended)
+	SignalBus.score_changed.connect(_on_score_changed)
+	SignalBus.money_changed.connect(_on_money_changed)
+	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
+		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
+	
+	if upgrades.size() == 0:
+		upgrades = {"multi_shot": 1}
+	
+	update_launcher_with_upgrades()
+	
+	SignalBus.emit_upgrades_changed(upgrades)
+	
+	randomize()
 	
 	setup_input_map()
 	connect_signals()
 	spawn_initial_enemies()
-	setup_level_visuals(level_number)
 	update_high_score_display()
 	update_money_display()
 	
 	create_simple_store()
 	
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	SignalBus.emit_upgrades_changed(upgrades)
+	
+	if launcher:
+		Log.debug("GC: Final launcher multi_shot_count: " + str(launcher.multi_shot_count))
 
-func connect_signals() -> void:
+func connect_signals():
 	SignalBus.shapes_popped.connect(_on_shapes_popped)
 	SignalBus.game_over_triggered.connect(_on_game_over)
 	SignalBus.score_changed.connect(update_score_display)
 	SignalBus.shape_launched.connect(_on_shape_launched)
 	
-	# Use safer lambda functions with weak references
-	SignalBus.money_changed.connect(func(new_money): 
-		if is_instance_valid(self) and not self.is_queued_for_deletion():
-			money = new_money
-			update_money_display()
-	)
-	
-	SignalBus.high_scores_updated.connect(func(high_scores): 
-		if is_instance_valid(self) and not self.is_queued_for_deletion():
-			update_high_score_display()
-	)
-	
-	SignalBus.upgrades_changed.connect(func(new_upgrades): 
-		if is_instance_valid(self) and not self.is_queued_for_deletion():
-			upgrades = new_upgrades
-			update_upgrades_display()
-	)
+	SignalBus.money_changed.connect(func(new_money): money = new_money; update_money_display())
+	SignalBus.high_scores_updated.connect(func(_high_scores): update_high_score_display())
+	SignalBus.upgrades_changed.connect(func(new_upgrades): upgrades = new_upgrades; update_upgrades_display())
 
-func setup_input_map() -> void:
+func setup_input_map():
 	if not InputMap.has_action("fire"):
 		InputMap.add_action("fire")
 		
@@ -88,7 +132,6 @@ func setup_input_map() -> void:
 		key_event.pressed = true
 		InputMap.action_add_event("fire", key_event)
 	
-	# Always recreate "open" action to ensure it's properly set up
 	if InputMap.has_action("open"):
 		InputMap.erase_action("open")
 		
@@ -97,319 +140,426 @@ func setup_input_map() -> void:
 	open_key.keycode = KEY_E
 	open_key.pressed = true
 	InputMap.action_add_event("open", open_key)
-	
-	print("Input actions set up. Actions: ", InputMap.get_actions())
 
-func _process(delta: float) -> void:
+func _process(delta):
 	if is_game_over:
 		return
 		
-	handle_enemy_spawning(delta)
-	update_difficulty(delta)
-	
-	if Input.is_action_just_pressed("open"):
-		toggle_store_direct()
-
-func update_difficulty(delta: float) -> void:
-	game_difficulty += delta * 0.01
-	enemy_speed = 80.0 + (game_difficulty * 20.0)
-	
-	if shapes_destroyed >= shapes_for_next_level:
-		advance_level()
-
-func advance_level() -> void:
-	level_number += 1
-	shapes_destroyed = 0
-	shapes_for_next_level = 20 + (level_number * 5)
-	
-	setup_level_visuals(level_number)
-
-func setup_level_visuals(level: int) -> void:
-	var bg_index = min(level - 1, backgrounds.size() - 1)
-	var background = $Background as TextureRect
-	
-	if background and background.texture:
-		var gradient_texture = background.texture as GradientTexture2D
-		if gradient_texture:
-			var gradient = gradient_texture.gradient
-			if bg_index < backgrounds.size():
-				gradient.colors[0] = backgrounds[bg_index]
-				gradient.colors[1] = backgrounds[bg_index].darkened(0.3)
-	
-	spawn_timer = max(1.5 - (level * 0.1), 0.5)
-
-func spawn_initial_enemies() -> void:
-	var screen_center_x = 550
-	for i in range(3):
-		var offset = (i - 1) * 100
-		var x_pos = screen_center_x + offset
-		var spawn_pos = Vector2(x_pos, -50 - i * 40)
-		
-		var shape := shape_scene.instantiate()
-		shape.position = spawn_pos
-		
-		shape.shape_type = i % 3
-		shape.color = randi() % 6
-		
-		configure_enemy(shape)
-		add_child(shape)
-		
-		await get_tree().create_timer(0.1).timeout
-
-func handle_enemy_spawning(delta: float) -> void:
 	time_since_last_spawn += delta
 	if time_since_last_spawn >= spawn_timer / game_difficulty:
 		spawn_enemy()
 		time_since_last_spawn = 0.0
+	
+	game_difficulty += delta * 0.015
+	enemy_speed = 80.0 + (game_difficulty * 15.0)
+	
+	if shapes_destroyed >= shapes_for_next_level:
+		level_number += 1
+		shapes_destroyed = 0
+		shapes_for_next_level = 15 + (level_number * 3)
 
-func spawn_enemy() -> void:
+func spawn_initial_enemies():
+	var screen_center_x = 550
+	for i in range(3):
+		var shape = shape_scene.instantiate()
+		shape.position = Vector2(screen_center_x + (i - 1) * 100, -50 - i * 40)
+		shape.shape_type = i % 3
+		shape.color = randi() % 6
+		configure_enemy(shape)
+		add_child(shape)
+		await get_tree().create_timer(0.025).timeout
+
+func spawn_enemy():
 	if not shape_scene:
 		return
 		
-	var shape := shape_scene.instantiate()
-	
-	var spawn_pos := find_suitable_spawn_position()
-	shape.position = spawn_pos
-	
-	shape.shape_type = randi() % 3  # Random shape: 0=SQUARE, 1=CIRCLE, 2=TRIANGLE
-	shape.color = randi() % 6       # Random color: 0=RED, 1=BLUE, etc.
-	
+	var shape = shape_scene.instantiate()
+	shape.position = find_suitable_spawn_position()
+	shape.shape_type = randi() % 3
+	shape.color = randi() % 6
 	configure_enemy(shape)
-	
 	add_child(shape)
 
-func find_suitable_spawn_position() -> Vector2:
-	var min_spacing := 150.0
-	var max_attempts := 25
-	var attempts := 0
-	var screen_center_x = 550
-	var spawn_width = 200
-	var x_pos := randf_range(screen_center_x - spawn_width/2, screen_center_x + spawn_width/2)
-	var spawn_pos := Vector2(x_pos, -50)
-	
+func find_suitable_spawn_position():
 	var enemies = get_tree().get_nodes_in_group("Enemies")
-	
-	while attempts < max_attempts:
-		var too_close := false
+	if enemies.size() == 0:
+		return Vector2(550, -50)
 		
+	var screen_center_x = 550
+	var min_spacing = 200.0
+	var max_attempts = 12
+	var spawn_width = 400
+	
+	for attempt in range(max_attempts):
+		var x_pos = screen_center_x + ((-spawn_width/2) + (spawn_width * (float(attempt) / float(max_attempts - 1))))
+		var extra_height = 0
+		if attempt > max_attempts / 2:
+			extra_height = (attempt - max_attempts / 2) * 50
+		var y_pos = -50 - extra_height
+		var spawn_pos = Vector2(x_pos, y_pos)
+		
+		var too_close = false
 		for enemy in enemies:
 			if spawn_pos.distance_to(enemy.position) < min_spacing:
 				too_close = true
 				break
 				
-		if not too_close or enemies.size() == 0:
-			break
+		if not too_close:
+			return spawn_pos
 			
-		x_pos = screen_center_x + ((-spawn_width/2) + (spawn_width * (float(attempts) / float(max_attempts - 1))))
-		spawn_pos = Vector2(x_pos, -50)
-		attempts += 1
-		
-		if attempts > max_attempts / 2:
-			spawn_pos.y = -50 - (attempts - max_attempts / 2) * 20
+	return Vector2(550, -200 - randf() * 200)
 
-	return spawn_pos
-
-func configure_enemy(enemy) -> void:
+func configure_enemy(enemy):
 	enemy.add_to_group("Enemies")
 	enemy.add_to_group("shapes")
 	enemy.is_enemy = true
-	var screen_center_x = 550
-	enemy.target_position = Vector2(screen_center_x, 720)
+	enemy.target_position = Vector2(550, 720)
 	enemy.move_speed = enemy_speed
 	
+	enemy.rotation_speed = randf_range(-2.0, 2.0)
+	
+	if enemy is RigidBody2D:
+		enemy.lock_rotation = false
+		enemy.angular_velocity = randf_range(-3.0, 3.0)
+		enemy.angular_damp = 0.0
+		
 	if level_number > 3 and randf() < 0.2:
 		enemy.health = 2
 		enemy.scale = Vector2(1.2, 1.2)
-	
-	if level_number > 5 and randf() < 0.1:
+	elif level_number > 5 and randf() < 0.1:
 		enemy.health = 3
 		enemy.scale = Vector2(1.4, 1.4)
 
-func check_enemies_reached_bottom() -> void:
-	var enemies := get_tree().get_nodes_in_group("Enemies")
-	for enemy in enemies:
-		if enemy.position.y > 700:
-			_on_game_over()
-			return
-
-func _on_shapes_popped(count: int) -> void:
+func _on_shapes_popped(count):
 	shapes_destroyed += 1
+	var multiplier = count if count > 1 else 1
 	
-	var level_multiplier = 1.0 + ((level_number - 1) * 0.2)
-	var points = int(1 * level_multiplier)
+	if count > 3:
+		multiplier = 3 + sqrt(count - 3)
 	
-	if count > 1:
-		points *= count
-	
-	score += points
+	score += int((1.0 + ((level_number - 1) * 0.2)) * multiplier)
 	SignalBus.emit_score_changed(score)
 	
-	money += money_per_hit * count
+	var effective_count = min(count, 5)
+	money += money_per_hit * effective_count
 	SignalBus.emit_money_changed(money)
 
-func _on_shape_launched(_shape: Node) -> void:
+func _on_shape_launched(_shape):
 	money += money_per_shot
 	SignalBus.emit_money_changed(money)
 
-func update_score_display(new_score: int) -> void:
-	var score_fill = get_node_or_null("ScoreDisplay/ScoreFill")
+func update_score_display(new_score):
 	if score_fill:
-		var max_width = 400
-		var fill_width = clamp(new_score / 1000.0 * max_width, 0, max_width)
-		score_fill.set_size(Vector2(fill_width, 30))
+		score_fill.set_size(Vector2(clamp(new_score / 1000.0 * 400, 0, 400), 30))
 		
-	var score_label = get_node_or_null("ScoreDisplay/ScoreLabel")
 	if score_label:
 		score_label.text = "Score: " + str(new_score)
 	
-	var current_score_label = get_node_or_null("CurrentScoreDisplay/CurrentScoreLabel")
 	if current_score_label:
 		current_score_label.text = "Score: " + str(new_score)
 
-func safe_tween(target_node: Node = null) -> Tween:
-	var tween = create_tween()
-	if tween == null and target_node:
-		tween = target_node.create_tween()
-	
-	return tween
-
-func _on_game_over() -> void:
+func _on_game_over():
 	if is_game_over:
 		return
 		
 	is_game_over = true
 	
-	var enemies := get_tree().get_nodes_in_group("Enemies")
+	var enemies = get_tree().get_nodes_in_group("Enemies")
 	for enemy in enemies:
 		if enemy.has_method("destroy"):
 			enemy.destroy()
 	
-	var tween = create_tween()
-	tween.tween_interval(1.5)
-	# Store a weak reference to self
-	var weak_self = weakref(self)
-	tween.tween_callback(func(): 
-		var instance = weak_self.get_ref()
-		if instance:
-			instance.show_game_over_screen()
-	)
+	create_tween().tween_interval(0.5).finished.connect(show_game_over_screen)
 
-func pause_game() -> void:
-	get_tree().paused = true
-
-func show_game_over_screen() -> void:
-	if high_score_panel_scene:
+func show_game_over_screen():
+	if is_instance_valid(self) and high_score_panel_scene:
 		var high_score_panel = high_score_panel_scene.instantiate()
 		add_child(high_score_panel)
 		
-		var high_score_mgr = get_node("/root/HighScoreManager")
-		if high_score_mgr and high_score_mgr.is_high_score(score):
-			var position = 0
-			var high_scores = high_score_mgr.get_high_scores()
-			
-			for i in range(high_scores.size()):
-				if score > high_scores[i]:
-					position = i
-					break
-				elif i == high_scores.size() - 1 and high_scores.size() < high_score_mgr.MAX_HIGH_SCORES:
-					position = high_scores.size()
-			
-			SignalBus.emit_new_high_score(score, position + 1)
+		SignalBus.emit_new_high_score(score, 1)
 
-func update_high_score_display() -> void:
-	var high_score_label = get_node_or_null("HighScoreDisplay/HighScoreLabel")
+func update_high_score_display():
 	if high_score_label:
-		var high_score_mgr = get_node("/root/HighScoreManager")
-		if high_score_mgr:
-			var high_scores = high_score_mgr.get_high_scores()
-			if high_scores.size() > 0:
-				high_score_label.text = "High: " + str(high_scores[0])
-				
-				var crown_icon = get_node_or_null("HighScoreDisplay/CrownIcon")
-				if crown_icon:
-					var tween = create_tween()
-					if tween:
-						tween.set_trans(Tween.TRANS_ELASTIC)
-						tween.tween_property(crown_icon, "scale", Vector2(0.6, 0.6), 0.3)
-						tween.tween_property(crown_icon, "scale", Vector2(0.5, 0.5), 0.3)
-			else:
-				high_score_label.text = "High: 0"
+		high_score_label.text = "High: 0"
+		
+		if crown_icon:
+			var tween = create_tween()
+			tween.set_trans(Tween.TRANS_ELASTIC)
+			tween.tween_property(crown_icon, "scale", Vector2(0.6, 0.6), 0.1)
+			tween.tween_property(crown_icon, "scale", Vector2(0.5, 0.5), 0.1)
 
-func update_money_display() -> void:
-	var money_label = get_node_or_null("MoneyDisplay/MoneyLabel")
-	if money_label:
-		var current_money_text = money_label.text
-		var current_money_value = 0
+func update_money_display():
+	if not money_label:
+		return
 		
-		if current_money_text.begins_with("Money: $"):
-			current_money_value = int(current_money_text.substr(8))
+	var current_money_value = 0
+	var current_text = money_label.text
+	if current_text.begins_with("Money: $"):
+		current_money_value = int(current_text.substr(8))
+	
+	money_label.text = "Money: $" + str(money)
+	
+	if money > current_money_value and current_money_value > 0 and coin_icon:
+		var tween = create_tween()
+		tween.set_trans(Tween.TRANS_BOUNCE)
+		tween.tween_property(coin_icon, "position:y", -5, 0.05)
+		tween.tween_property(coin_icon, "position:y", 0, 0.05)
 		
-		var new_text = "Money: $" + str(money)
-		money_label.text = new_text
-		
-		if money > current_money_value and current_money_value > 0:
-			var coin_icon = get_node_or_null("MoneyDisplay/CoinIcon")
-			if coin_icon:
-				var tween = create_tween()
-				if tween:
-					tween.set_trans(Tween.TRANS_BOUNCE)
-					tween.tween_property(coin_icon, "position:y", -5, 0.2)
-					tween.tween_property(coin_icon, "position:y", 0, 0.2)
-				
-				var shine = coin_icon.get_node_or_null("CoinShine")
-				if shine:
-					var shine_tween = create_tween()
-					if shine_tween:
-						shine_tween.tween_property(shine, "scale", Vector2(0.5, 0.5), 0.3)
-						shine_tween.tween_property(shine, "scale", Vector2(0.3, 0.3), 0.3)
+		if coin_shine:
+			tween.parallel().tween_property(coin_shine, "scale", Vector2(0.5, 0.5), 0.075)
+			tween.tween_property(coin_shine, "scale", Vector2(0.3, 0.3), 0.075)
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_X or event.keycode == KEY_P:
-			toggle_store_direct()
-		
-	if event.is_action_pressed("open"):
+func _input(event):
+	if event is InputEventKey and event.pressed and !event.is_echo() and event.keycode == KEY_E:
 		toggle_store_direct()
 
 func update_pause_state():
-	var store = $CanvasLayer/StoreControl
-	if store:
-		get_tree().paused = store.visible
-	else:
-		get_tree().paused = false
+	var store = $CanvasLayer.get_node_or_null("StoreControl")
+	get_tree().paused = store and store.visible
+	
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
-func toggle_store_direct() -> void:
-	if store_instance and is_instance_valid(store_instance):
-		if high_score_manager:
-			high_score_manager.set_player_money(money)
-			high_score_manager.set_player_upgrades(upgrades)
-			
-		store_instance.visible = !store_instance.visible
-		get_tree().paused = store_instance.visible
-	else:
+func toggle_store_direct():
+	if store_instance == null or !is_instance_valid(store_instance):
 		create_simple_store()
-		if store_instance:
-			store_instance.visible = true
-			get_tree().paused = true
+		if store_instance == null:
+			print("GC: Failed to create store instance")
+			return
+	
+	store_visible = !store_visible
+	store_instance.visible = store_visible
+	
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	
+	var parent = store_instance.get_parent()
+	if parent and parent.visible != store_visible:
+		parent.visible = store_visible
+	
+	if store_visible:
+		print("GC: Opening store with money:", money, " upgrades:", upgrades)
+		if store_instance.has_method("update_with_player_data"):
+			store_instance.update_with_player_data(money, upgrades)
+			print("GC: Updated store with player data")
+		else:
+			store_instance.player_money = money
+			store_instance.player_upgrades = upgrades.duplicate()
+			if store_instance.has_method("update_money_display"):
+				store_instance.update_money_display()
+			if store_instance.has_method("setup_price_displays"):
+				store_instance.setup_price_displays()
+			print("GC: Manually set store data")
+		get_viewport().set_input_as_handled()
+	else:
+		print("GC: Closing store")
+	
+	get_tree().paused = store_visible
+	print("GC: Pause state set to", store_visible)
 
-func get_upgrades() -> Dictionary:
+func get_upgrades():
 	return upgrades
 	
-func set_upgrades(new_upgrades: Dictionary) -> void:
-	upgrades = new_upgrades
+func set_upgrades(new_upgrades):
+	Log.debug("GC: Setting upgrades to: " + str(new_upgrades))
+	upgrades = new_upgrades.duplicate()
+	print("GC: Set upgrades to: ", upgrades)
+	update_launcher_with_upgrades()
 	SignalBus.emit_upgrades_changed(upgrades)
 
-func update_upgrades_display() -> void:
-	var upgrades_label = get_node_or_null("UpgradesDisplay/UpgradesLabel")
-	if upgrades_label:
-		var upgrade_text = "Upgrades: "
-		for upgrade in upgrades:
-			upgrade_text += upgrade + ": " + str(upgrades[upgrade]) + " "
-		upgrades_label.text = upgrade_text
+func update_upgrades_display():
+	if not upgrades_label:
+		return
+		
+	var upgrade_text = "Upgrades: "
+	for upgrade in upgrades:
+		upgrade_text += upgrade + ": " + str(upgrades[upgrade]) + " "
+	upgrades_label.text = upgrade_text
 
 func create_simple_store():
 	store_scene = preload("res://scenes/Store.tscn")
 	if store_scene:
+		print("GC: Creating store instance")
 		store_instance = store_scene.instantiate()
+		store_instance.name = "StoreControl"
 		store_instance.visible = false
-		$CanvasLayer.add_child(store_instance)
+		store_instance.process_mode = Node.PROCESS_MODE_ALWAYS
+		
+		if "player_money" in store_instance:
+			store_instance.player_money = money
+		if "player_upgrades" in store_instance:
+			store_instance.player_upgrades = upgrades.duplicate()
+		
+		print("GC: Setup complete, adding to canvas layer")
+		if canvas_layer:
+			canvas_layer.add_child(store_instance)
+			store_visible = false
+		else:
+			print("GC: No canvas layer found to add store to!")
+	else:
+		print("GC: Failed to load store scene!")
+
+func update_launcher_with_upgrades():
+	if launcher and is_instance_valid(launcher):
+		print("GC: Updating launcher with upgrades: ", upgrades)
+		
+		if "multi_shot" in upgrades:
+			launcher.multi_shot_count = upgrades["multi_shot"]
+			print("GC: Set launcher.multi_shot_count directly to: ", launcher.multi_shot_count)
+		
+		if "launch_speed" in upgrades:
+			var base_speed = 350.0
+			var speed_increment = 50.0
+			launcher.launch_speed = base_speed + (upgrades.get("launch_speed", 0) * speed_increment)
+			print("GC: Updated launch_speed to: ", launcher.launch_speed)
+			
+		if "cooldown" in upgrades:
+			var base_cooldown = 0.5
+			var cooldown_reduction = 0.05
+			launcher.cooldown_time = max(0.1, base_cooldown - (upgrades.get("cooldown", 0) * cooldown_reduction))
+			print("GC: Updated cooldown_time to: ", launcher.cooldown_time)
+		
+		print("GC: Forcing launcher to update with upgrades: ", upgrades)
+		if launcher.has_method("_on_upgrades_changed"):
+			launcher._on_upgrades_changed(upgrades)
+			print("GC: Verified multi_shot_count is now: ", launcher.multi_shot_count)
+		else:
+			print("GC: ERROR - launcher does not have _on_upgrades_changed method")
+	else:
+		print("GC: WARNING - No valid launcher found to update")
+
+func _on_multi_shot_purchased():
+	if not upgrades.has("multi_shot"):
+		upgrades["multi_shot"] = 1
+	
+	upgrades["multi_shot"] += 1
+	
+	if launcher:
+		launcher.multi_shot_count = upgrades["multi_shot"] 
+	
+	SignalBus.emit_upgrades_changed(upgrades)
+
+func _on_game_ended():
+	game_running = false
+	
+func _on_score_changed(new_score):
+	score = new_score
+	update_score_display(new_score)
+
+func _on_money_changed(new_money):
+	money = new_money
+	update_money_display()
+
+func _on_upgrades_changed(new_upgrades):
+	print("GC: _on_upgrades_changed received: ", new_upgrades)
+	upgrades = new_upgrades.duplicate()
+	update_upgrades_display()
+	
+	if launcher and is_instance_valid(launcher):
+		print("GC: Launcher exists, updating...")
+		if "multi_shot" in upgrades and launcher.has_method("_on_upgrades_changed"):
+			launcher._on_upgrades_changed(upgrades)
+			
+			Log.debug("GC: Verifying multi_shot_count in launcher: " + str(launcher.multi_shot_count))
+			print("GC: Launcher multi_shot_count after update: ", launcher.multi_shot_count)
+	else:
+		print("GC: Launcher is not valid in _on_upgrades_changed")
+	
+	update_launcher_with_upgrades()
+
+func handle_enemy_spawning(_delta):
+	pass
+
+func update_difficulty(_delta):
+	pass
+
+func advance_level():
+	pass
+
+func _on_viewport_size_changed():
+	setup_spawn_positions()
+	
+	if is_instance_valid(launcher):
+		var viewport_rect = get_viewport().get_visible_rect()
+		launcher.position.y = viewport_rect.size.y - 50
+		launcher.position.x = viewport_rect.size.x / 2
+
+func setup_game_difficulty():
+	current_min_difficulty = 0.1
+	current_max_difficulty = 0.6
+	
+	current_difficulty = current_min_difficulty
+
+func setup_spawn_positions():
+	spawn_positions.clear()
+	
+	var viewport_rect = get_viewport().get_visible_rect()
+	despawn_position_y = viewport_rect.size.y + 100
+	
+	var spacing = 150
+	var margin = 100
+	var positions_count = int((viewport_rect.size.x - 2 * margin) / spacing)
+	
+	for i in range(positions_count):
+		var x_pos = margin + i * spacing
+		spawn_positions.append(Vector2(x_pos, -50))
+
+func setup_launcher():
+	if is_instance_valid(launcher):
+		launcher.queue_free()
+	
+	if shape_scene:
+		launcher = shape_scene.instantiate()
+		add_child(launcher)
+		
+		var viewport_rect = get_viewport().get_visible_rect()
+		launcher.position = Vector2(viewport_rect.size.x / 2, viewport_rect.size.y - 50)
+
+func _on_enemy_destroyed(enemy):
+	if is_instance_valid(enemy):
+		current_shapes.erase(enemy)
+	
+	money += money_per_hit
+	update_money_display()
+
+func _on_enemy_reached_bottom(enemy):
+	if is_instance_valid(enemy):
+		current_shapes.erase(enemy)
+		
+		if not is_game_over:
+			is_game_over = true
+
+func set_money(new_money):
+	money = new_money
+	update_money_display()
+	print("GC: Set money to: ", money)
+
+func force_multishot_upgrade():
+	print("GC: Force upgrading multi-shot")
+	upgrades["multi_shot"] = 3
+	
+	if launcher and is_instance_valid(launcher):
+		launcher.multi_shot_count = upgrades["multi_shot"]
+		print("GC: Force-set launcher.multi_shot_count to:", launcher.multi_shot_count)
+		
+		if launcher.has_method("_on_upgrades_changed"):
+			launcher._on_upgrades_changed(upgrades)
+	
+	SignalBus.emit_upgrades_changed(upgrades)
+	return true
+
+func force_launch_speed_upgrade():
+	print("GC: Force upgrading launch speed")
+	upgrades["launch_speed"] = 3
+	
+	if launcher and is_instance_valid(launcher):
+		launcher.launch_speed = 350.0 + (upgrades["launch_speed"] * 50.0)
+		print("GC: Force-set launcher.launch_speed to:", launcher.launch_speed)
+		
+		if launcher.has_method("_on_upgrades_changed"):
+			launcher._on_upgrades_changed(upgrades)
+	
+	SignalBus.emit_upgrades_changed(upgrades)
+	return true
+
+func _on_item_pressed(item_index):
+	if item_index == 0:
+		_on_multi_shot_purchased()

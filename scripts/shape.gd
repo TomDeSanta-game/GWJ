@@ -13,6 +13,7 @@ var cluster_position: Vector2 = Vector2.ZERO
 var target_position: Vector2 = Vector2.ZERO
 var move_speed: float = 80.0
 var health: int = 1
+var rotation_speed: float = 0.0
 
 var has_launched: bool = false
 var in_grid: bool = false
@@ -23,31 +24,30 @@ func _ready():
 	if is_enemy:
 		add_to_group("enemies")
 		add_to_group("Enemies")
+		rotation_speed = randf_range(-2.0, 2.0)
 	else:
 		add_to_group("shapes")
 		
 	contact_monitor = true
 	max_contacts_reported = 20
 	
-	# Only perform launcher checks if explicitly put in the launcher_shapes group
 	if is_in_group("launcher_shapes"):
 		call_deferred("check_for_overlapping_shapes")
+		
+	# Ensure default physics properties
+	freeze = true
+	can_sleep = false
 
 func check_for_overlapping_shapes():
-	# Wait one frame to allow for proper positioning
 	await get_tree().process_frame
 	
-	# First, check if already queued for deletion
 	if is_queued_for_deletion():
 		return
 	
-	# Only check for other launcher shapes, don't try to find the launcher
 	var launcher_shapes = get_tree().get_nodes_in_group("launcher_shapes")
 	if launcher_shapes.size() > 1:
-		# Sort shapes by creation time (older shapes have lower instance IDs)
 		launcher_shapes.sort_custom(func(a, b): return a.get_instance_id() < b.get_instance_id())
 		
-		# Keep the oldest shape (first in the sorted array)
 		if self != launcher_shapes[0]:
 			queue_free()
 			return
@@ -56,6 +56,9 @@ func _process(delta):
 	if is_enemy and not launched:
 		move_towards_target(delta)
 		check_player_collision()
+		
+		if rotation_speed != 0:
+			rotation += rotation_speed * delta
 	
 	if launched and not is_enemy:
 		check_direct_collisions()
@@ -64,19 +67,28 @@ func _process(delta):
 			linear_velocity = Vector2.ZERO
 		else:
 			linear_velocity = linear_velocity.lerp(Vector2.ZERO, delta * 0.1)
+		
+		# Ensure proper physics properties when launched
+		if has_launched and freeze:
+			freeze = false
+			gravity_scale = 0.3
+			linear_damp = 0.0
+			angular_damp = 0.5
 
 func initialize_shape():
 	var collision_shape = CollisionShape2D.new()
 	var size = 40
 	
 	var physics_material = PhysicsMaterial.new()
-	physics_material.bounce = 0.0
-	physics_material.friction = 1.0
+	physics_material.bounce = 0.5
+	physics_material.friction = 0.2
 	
 	self.physics_material_override = physics_material
 	self.gravity_scale = 0.0
-	self.linear_damp = 5.0
-	self.angular_damp = 5.0
+	self.linear_damp = 0.0
+	self.angular_damp = 0.1
+	self.freeze = true
+	self.can_sleep = false
 	
 	if is_enemy:
 		self.collision_layer = 2
@@ -197,20 +209,21 @@ func draw_pixel_triangle(img: Image, size_px: int, color_value: Color):
 	var bottom_y = size_px - 2
 	
 	for y in range(top_y, bottom_y + 1):
-		var progress = float(y - top_y) / (bottom_y - top_y)
-		var width = int((size_px - 4) * progress)
-		var start_x = int(center_x - width / 2.0)
-		var end_x = start_x + width
+		var progress = float(y - top_y) / float(bottom_y - top_y)
+		var width = (size_px - 4) * progress
+		var start_x = center_x - width / 2
+		var end_x = center_x + width / 2
 		
-		for x in range(start_x, end_x + 1):
-			if x == start_x or x == end_x or y == top_y or y == bottom_y - 1:
-				img.set_pixel(x, y, border_color)
-			else:
-				var highlight = 0.0
-				if x < center_x and y < size_px / 2:
-					highlight = 0.2
-				
-				img.set_pixel(x, y, color_value.lightened(highlight))
+		for x in range(size_px):
+			if x >= start_x - 0.5 and x <= end_x + 0.5:
+				if (x == start_x or x == end_x or y == bottom_y):
+					img.set_pixel(x, y, border_color)
+				else:
+					var highlight = 0.0
+					if y < center_x and x > center_x - 2 and x < center_x + 2:
+						highlight = 0.2
+					
+					img.set_pixel(x, y, color_value.lightened(highlight))
 
 func _on_body_entered(body):
 	if not is_instance_valid(body):
@@ -244,21 +257,27 @@ func check_direct_collisions():
 			SignalBus.emit_shapes_popped(1)
 			SignalBus.emit_enemy_destroyed(body)
 
-func set_launched():
-	has_launched = true
-	launched = true
-	
-	self.freeze = false
-	self.sleeping = false
-	self.gravity_scale = 0.0
-	self.collision_layer = 1
-	self.collision_mask = 2
-	self.contact_monitor = true
-	self.max_contacts_reported = 20
-	
-	var collision_shape = get_node_or_null("CollisionShape2D")
-	if collision_shape:
-		collision_shape.disabled = false
+func set_launched(value: bool = true):
+	if value:
+		launched = true
+		has_launched = true
+		freeze = false
+		gravity_scale = 0.3
+		linear_damp = 0.0
+		angular_damp = 0.5
+		contact_monitor = true
+		max_contacts_reported = 10
+		lock_rotation = false
+		process_mode = Node.PROCESS_MODE_ALWAYS
+		
+		var collision_shape = get_node_or_null("CollisionShape2D")
+		if collision_shape:
+			collision_shape.disabled = false
+			
+		if not is_in_group("launched_shapes"):
+			add_to_group("launched_shapes")
+			
+		SignalBus.emit_shape_launched(self)
 
 func take_damage():
 	health -= 1
@@ -276,7 +295,6 @@ func flash_damage():
 func move_towards_target(delta: float):
 	var direction = (target_position - global_position).normalized()
 	global_position += direction * move_speed * delta
-	rotation = direction.angle() + PI/2
 	
 	if global_position.y > 700:
 		var game_controller = get_tree().current_scene
@@ -371,7 +389,6 @@ func create_pixel_explosion():
 	var flash_tween = particles_parent.create_tween()
 	flash_tween.tween_property(flash, "color:a", 0.0, 0.15)
 	
-	# Use weak references for the flash
 	var weak_flash = weakref(flash)
 	flash_tween.tween_callback(func(): 
 		var flash_ref = weak_flash.get_ref()
@@ -379,7 +396,6 @@ func create_pixel_explosion():
 			flash_ref.queue_free()
 	)
 	
-	# Use a safer approach for self deletion
 	var self_weak = weakref(self)
 	var delete_timer = get_tree().create_timer(0.1)
 	delete_timer.timeout.connect(func():
@@ -388,7 +404,6 @@ func create_pixel_explosion():
 			self_ref.queue_free()
 	)
 	
-	# Use a weak reference for the particles_parent
 	var weak_particles = weakref(particles_parent)
 	var cleanup_timer = get_tree().create_timer(duration)
 	cleanup_timer.timeout.connect(func(): 
@@ -412,3 +427,6 @@ func get_shape_color() -> Color:
 		ShapeColor.ORANGE:
 			return Color(0.9, 0.5, 0.2)
 	return Color(1, 1, 1)
+
+func set_rotation_speed(speed: float):
+	rotation_speed = speed
