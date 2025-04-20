@@ -9,9 +9,14 @@ var player_money = 0
 var player_upgrades = {}
 
 func _ready():
-	SignalBus.game_over_triggered.connect(_on_game_over)
-	SignalBus.money_changed.connect(_on_money_changed)
-	SignalBus.upgrades_changed.connect(_on_upgrades_changed)
+	if not SignalBus.game_over_triggered.is_connected(_on_game_over):
+		SignalBus.game_over_triggered.connect(_on_game_over)
+	
+	if not SignalBus.money_changed.is_connected(_on_money_changed):
+		SignalBus.money_changed.connect(_on_money_changed)
+	
+	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
+		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
 	
 	load_high_scores()
 	load_game_data()
@@ -84,7 +89,6 @@ func load_game_data():
 				player_upgrades = data["upgrades"]
 		file.close()
 	else:
-		# Default starting values
 		player_money = 0
 		player_upgrades = {}
 

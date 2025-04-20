@@ -18,6 +18,27 @@ var rotation_speed: float = 0.0
 var has_launched: bool = false
 var in_grid: bool = false
 
+var base_health: int = 1
+var damage_flash_time: float = 0.1
+var is_flashing: bool = false
+var has_collided_with_player: bool = false
+
+var color_values = {
+	ShapeColor.RED: Color(0.9, 0.2, 0.2),
+	ShapeColor.BLUE: Color(0.2, 0.4, 0.9),
+	ShapeColor.GREEN: Color(0.2, 0.8, 0.3),
+	ShapeColor.YELLOW: Color(0.9, 0.8, 0.2),
+	ShapeColor.PURPLE: Color(0.7, 0.3, 0.8),
+	ShapeColor.ORANGE: Color(0.9, 0.5, 0.2)
+}
+
+var game_controller = null
+
+@onready var sprite = $Sprite2D
+@onready var collision_shape = $CollisionShape2D
+@onready var area_2d = $Area2D
+@onready var area_collision = $Area2D/CollisionShape2D
+
 func _ready():
 	initialize_shape()
 	
@@ -287,10 +308,18 @@ func take_damage():
 		flash_damage()
 
 func flash_damage():
-	modulate = Color(1.5, 1.5, 1.5, 1)
+	if is_flashing:
+		return
 	
-	var tween = create_tween()
-	tween.tween_property(self, "modulate", Color(1, 1, 1, 1), 0.2)
+	is_flashing = true
+	var original_color = sprite.modulate
+	sprite.modulate = Color.WHITE
+	
+	await get_tree().create_timer(damage_flash_time).timeout
+	
+	if is_instance_valid(self):
+		sprite.modulate = original_color
+		is_flashing = false
 
 func move_towards_target(delta: float):
 	var direction = (target_position - global_position).normalized()
@@ -430,3 +459,50 @@ func get_shape_color() -> Color:
 
 func set_rotation_speed(speed: float):
 	rotation_speed = speed
+
+func _integrate_forces(state):
+	if not has_launched:
+		state.linear_velocity = Vector2.ZERO
+		state.angular_velocity = 0.0
+
+func setup_health():
+	match shape_type:
+		ShapeType.SQUARE:
+			base_health = 3
+		ShapeType.CIRCLE:
+			base_health = 2
+		ShapeType.TRIANGLE:
+			base_health = 1
+	
+	health = base_health
+
+func find_game_controller():
+	var potential_paths = [
+		"/root/Main/GameController",
+		"/root/Main/World/GameController",
+		"/root/GameController"
+	]
+	
+	for path in potential_paths:
+		var node = get_node_or_null(path)
+		if node:
+			return node
+	
+	var parent = get_parent()
+	while parent:
+		if parent.has_method("on_shape_destroyed"):
+			return parent
+		parent = parent.get_parent()
+	
+	return null
+
+func handle_static_collision(body):
+	if has_launched and body is StaticBody2D:
+		take_damage()
+
+func _on_area_body_entered(body):
+	if has_launched and body.is_in_group("player"):
+		health = 0  # Set health to zero to trigger destruction
+		take_damage()
+		if game_controller:
+			game_controller.on_shape_hit_player(self)

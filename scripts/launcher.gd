@@ -1,177 +1,155 @@
 extends Node2D  
 
-@export var shape_scene: PackedScene = preload("res://scenes/Shape.tscn")
-@export var launch_speed: float = 500.0  
-@export var cooldown_time: float = 1.5  
+@onready var launch_sound = $LaunchSound
+@onready var cooldown_timer = $CooldownTimer
+@onready var cooldown_label = $CooldownLabel
+@onready var launcher_direction = $LauncherDirection
 
-var current_shape: Node = null  
-var can_launch: bool = true  
-var cooldown_timer: float = 0.0  
-var aim_direction: Vector2 = Vector2.UP  
-var multi_shot_count: int = 1
-var trajectory_line: Line2D
-var trajectory_time: float = 0.0
-var max_trajectory_length: float = 500.0
+var shape_scene = preload("res://scenes/Shape.tscn")
+var current_shape = null
+var can_launch = true
+var cooldown_time = 1.0
+var trajectory_points = 10
+var trajectory_length = 300
+var multi_shot_count = 1
+var launch_speed = 350.0
+var reticle_visible = false
 
-func _ready():  
-	current_shape = null
-	can_launch = true
-	
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	
-	multi_shot_count = 2
-	print("LAUNCHER INIT: Setting multi_shot_count to 2")
-	
-	var gc = get_node_or_null("/root/MainNew/GameController")
-	if gc and "upgrades" in gc and "multi_shot" in gc.upgrades:
-		if gc.upgrades["multi_shot"] >= 2:
-			multi_shot_count = gc.upgrades["multi_shot"]
-	print("LAUNCHER INIT: multi_shot_count initialized to:", multi_shot_count)
+func _ready():
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	
 	for child in get_children():
 		if child is Line2D:
 			child.visible = false
 			child.queue_free()
-		elif "Trajectory" in child.name or "Line" in child.name:
-			child.visible = false
-			child.queue_free()
-	
-	trajectory_line = Line2D.new()
-	trajectory_line.name = "TrajectoryPointer"
-	trajectory_line.width = 3.0
-	trajectory_line.default_color = Color(0.6, 0.6, 0.6, 0.5)
-	trajectory_line.begin_cap_mode = Line2D.LINE_CAP_ROUND
-	trajectory_line.end_cap_mode = Line2D.LINE_CAP_ROUND
-	add_child(trajectory_line)
-	
-	call_deferred("spawn_shape_instantly")
 	
 	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
 		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
+	
+	spawn_shape()
+	setup_trajectory_line()
+
+func setup_trajectory_line():
+	var line = Line2D.new()
+	line.name = "TrajectoryLine"
+	line.width = 3.0
+	line.default_color = Color(1, 1, 1, 0.5)
+	
+	var arrow = Polygon2D.new()
+	arrow.name = "TrajectoryArrow"
+	arrow.color = Color(1, 1, 1, 0.5)
+	arrow.polygon = PackedVector2Array([
+		Vector2(0, -10),
+		Vector2(20, 0),
+		Vector2(0, 10)
+	])
+	
+	add_child(line)
+	add_child(arrow)
+	update_trajectory_line()
+
+func update_trajectory_line():
+	var line = get_node_or_null("TrajectoryLine")
+	var arrow = get_node_or_null("TrajectoryArrow")
+	
+	if not line or not arrow:
+		return
+	
+	var mouse_pos = get_global_mouse_position()
+	var direction = (mouse_pos - global_position).normalized()
+	
+	var points = PackedVector2Array()
+	var step = trajectory_length / trajectory_points
+	
+	for i in range(trajectory_points + 1):
+		var point = global_position + direction * (step * i)
+		points.append(point)
+	
+	line.points = points
+	
+	if points.size() > 1:
+		arrow.position = points[points.size() - 1]
+		arrow.rotation = direction.angle() + PI/2
+	
+	line.visible = reticle_visible
+	arrow.visible = reticle_visible
 
 func _process(delta):  
-	if not can_launch:
-		cooldown_timer -= delta
-		if cooldown_timer <= 0:
-			can_launch = true
+	if cooldown_timer and cooldown_timer.time_left > 0:
+		if cooldown_label:
+			cooldown_label.text = "%.1f" % cooldown_timer.time_left
+	else:
+		if cooldown_label:
+			cooldown_label.text = ""
 	
-	trajectory_time += delta * 2.0
+	if current_shape and !current_shape.has_launched:
+		current_shape.position = position
 	
-	var dir_line = get_node_or_null("LauncherDirection")
-	if dir_line:
-		dir_line.visible = false
-		
-	var reticle = get_node_or_null("LauncherReticle")
-	if reticle:
-		reticle.visible = false
+	update_trajectory_line()
 	
-	aim_direction = (get_global_mouse_position() - global_position).normalized()
-	
-	update_trajectory(delta)
-	
-	if not current_shape or not is_instance_valid(current_shape):
-		spawn_shape_instantly()
-	
-	if Input.is_action_just_pressed("fire"):
-		if can_launch and current_shape != null:
-			launch_shape()
-
-func update_trajectory(_delta):
-	var mouse_distance = global_position.distance_to(get_global_mouse_position())
-	var line_length = min(mouse_distance * 0.9, max_trajectory_length)
-	
-	var points = []
-	var pos = Vector2.ZERO
-	
-	points.append(pos)
-	pos += aim_direction * line_length
-	points.append(pos)
-	
-	trajectory_line.points = points
-	
-	var pulse_alpha = 0.3 + 0.2 * sin(trajectory_time * 2.0)
-	trajectory_line.default_color = Color(0.6, 0.6, 0.6, pulse_alpha)
+	# Update launcher direction
+	var mouse_pos = get_global_mouse_position()
+	var direction = (mouse_pos - global_position).normalized()
+	if launcher_direction:
+		launcher_direction.rotation = direction.angle() + PI/2
 
 func _input(event):
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			if can_launch and current_shape != null:
-				launch_shape()
-
-func _on_upgrades_changed(upgrades):
-	print("LAUNCHER: Received upgrades: ", upgrades)
+			launch_shape()
 	
-	if "multi_shot" in upgrades:
-		multi_shot_count = upgrades["multi_shot"]
-	else:
-		multi_shot_count = 2
-	
-	print("LAUNCHER: multi_shot_count is now: ", multi_shot_count)
-	
-	var launch_speed_level = upgrades.get("launch_speed", 0)
-	launch_speed = 350.0 + (launch_speed_level * 50.0)
-	
-	var cooldown_level = upgrades.get("cooldown", 0)
-	cooldown_time = max(0.1, 0.5 - (cooldown_level * 0.05))
-	
-	print("LAUNCHER: Final values - multi_shot: ", multi_shot_count, ", speed: ", launch_speed, ", cooldown: ", cooldown_time)
+	if event is InputEventMouseMotion:
+		reticle_visible = true
+		update_trajectory_line()
 
 func launch_shape():
-	if not can_launch or not current_shape or not is_instance_valid(current_shape):
+	if !can_launch or !current_shape:
 		return
 		
-	var shape = current_shape
-	current_shape = null
+	var mouse_pos = get_global_mouse_position()
+	var direction = (mouse_pos - global_position).normalized()
 	
-	shape.freeze = false
-	shape.launched = true
-	shape.has_launched = true
-	shape.gravity_scale = 0.3
-	
-	var impulse = aim_direction * launch_speed
-	shape.linear_velocity = impulse
-	shape.apply_central_impulse(impulse)
-	
-	print("Launching shapes. multi_shot_count = ", multi_shot_count)
-	
-	if multi_shot_count >= 2:
-		var additional_shots = multi_shot_count - 1
-		print("Additional shots: ", additional_shots)
-		for i in range(additional_shots):
-			var new_shape = shape_scene.instantiate()
-			if new_shape:
-				new_shape.shape_type = randi() % 3
-				new_shape.color = randi() % 6
-				get_parent().add_child(new_shape)
-				new_shape.position = global_position
-				
-				new_shape.freeze = false
-				new_shape.launched = true
-				new_shape.has_launched = true
-				new_shape.gravity_scale = 0.3
-				
-				var angle_offset = randf_range(-0.3, 0.3)
-				var new_impulse = impulse.rotated(angle_offset) 
-				new_shape.linear_velocity = new_impulse
-				new_shape.apply_central_impulse(new_impulse)
-				
-				print("Created additional shape ", i+1, " of ", additional_shots)
+	for i in range(multi_shot_count):
+		var shape = current_shape if i == 0 else spawn_shape_instantly()
+		
+		if shape:
+			var launch_angle_spread = 0.1 * i
+			var adjusted_direction = direction.rotated(launch_angle_spread if i % 2 == 0 else -launch_angle_spread)
+			
+			shape.apply_central_impulse(adjusted_direction * launch_speed)
+			shape.set_launched(true)
+			
+			launch_sound.pitch_scale = 1.0 + (i * 0.1)
+			launch_sound.play()
 	
 	can_launch = false
-	cooldown_timer = cooldown_time
+	cooldown_timer.start(cooldown_time)
 	
-	SignalBus.emit_shape_launched(shape)
+	current_shape = null
 	
-	call_deferred("spawn_shape_instantly")
+	if !current_shape:
+		get_tree().create_timer(cooldown_time * 0.5).timeout.connect(func(): spawn_shape())
+
+func spawn_shape():
+	var shape = shape_scene.instantiate()
+	add_child(shape)
+	shape.position = position
+	current_shape = shape
+	return shape
 
 func spawn_shape_instantly():
-	if current_shape and is_instance_valid(current_shape):
-		return
-		
 	var shape = shape_scene.instantiate() 
-	if shape:
-		shape.shape_type = randi() % 3
-		shape.color = randi() % 6
-		get_parent().add_child(shape)
-		shape.position = global_position
-		current_shape = shape
+	add_child(shape)
+	shape.position = position
+	shape.set_launched(true)
+	return shape
+
+func _on_cooldown_timer_timeout():
+	can_launch = true
+
+func _on_upgrades_changed(upgrades):
+	multi_shot_count = 1 + (upgrades.get("multi_shot", 0))
+	launch_speed = 350.0 + (upgrades.get("launch_power", 0) * 50.0)
+	cooldown_time = max(0.2, 1.0 - (upgrades.get("cooldown", 0) * 0.15))
+	if cooldown_timer:
+		cooldown_timer.wait_time = cooldown_time

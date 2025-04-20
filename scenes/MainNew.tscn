@@ -66,7 +66,6 @@ autostart = true
 [node name="Launcher" type="Node2D" parent="."]
 position = Vector2(597, 580)
 script = ExtResource("3_1e6a1")
-launch_speed = 1200.0
 
 [node name="LauncherGlow" type="ColorRect" parent="Launcher"]
 offset_left = -60.0

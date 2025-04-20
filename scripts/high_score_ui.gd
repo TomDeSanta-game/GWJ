@@ -19,9 +19,19 @@ func connect_signals():
 		play_again_button.pressed.connect(_on_play_again_pressed)
 
 func get_high_scores():
-	var high_score_mgr = get_node("/root/HighScoreManager")
-	if high_score_mgr:
+	var high_score_mgr = get_node_or_null("/root/HighScoreManager")
+	if high_score_mgr == null:
+		high_score_mgr = get_tree().current_scene.get_node_or_null("HighScoreManager")
+		
+		if high_score_mgr == null and get_tree().current_scene.has_node("GameController"):
+			var game_controller = get_tree().current_scene.get_node("GameController")
+			if "high_score_manager" in game_controller and game_controller.high_score_manager != null:
+				high_score_mgr = game_controller.high_score_manager
+	
+	if high_score_mgr and high_score_mgr.has_method("get_high_scores"):
 		high_scores = high_score_mgr.get_high_scores()
+	else:
+		high_scores = []
 
 func _on_high_scores_updated(updated_high_scores):
 	high_scores = updated_high_scores
