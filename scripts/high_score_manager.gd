@@ -18,8 +18,27 @@ func _ready():
 	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
 		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
 	
+	delete_save_files()
+	
 	load_high_scores()
 	load_game_data()
+
+func delete_save_files():
+	var dir = DirAccess.open("user://")
+	if dir:
+		if FileAccess.file_exists(SAVE_FILE_PATH):
+			dir.remove(SAVE_FILE_PATH)
+		
+		if FileAccess.file_exists(GAME_DATA_PATH):
+			dir.remove(GAME_DATA_PATH)
+		
+	high_scores = []
+	player_money = 0
+	player_upgrades = {}
+	
+	SignalBus.emit_high_scores_updated(high_scores)
+	SignalBus.emit_money_changed(player_money)
+	SignalBus.emit_upgrades_changed(player_upgrades)
 
 func _on_game_over():
 	var current_score = get_tree().current_scene.score

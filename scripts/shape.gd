@@ -34,12 +34,13 @@ var color_values = {
 
 var game_controller = null
 
-@onready var sprite = $Sprite2D
-@onready var collision_shape = $CollisionShape2D
-@onready var area_2d = $Area2D
-@onready var area_collision = $Area2D/CollisionShape2D
+var sprite
+var collision_shape
+var area_2d
+var area_collision
 
 func _ready():
+	setup_required_nodes()
 	initialize_shape()
 	
 	if is_enemy:
@@ -58,6 +59,45 @@ func _ready():
 	# Ensure default physics properties
 	freeze = true
 	can_sleep = false
+
+func setup_required_nodes():
+	# Setup Sprite2D
+	sprite = get_node_or_null("Sprite2D")
+	if not sprite:
+		sprite = Sprite2D.new()
+		sprite.name = "Sprite2D"
+		add_child(sprite)
+	
+	# Setup CollisionShape2D
+	collision_shape = get_node_or_null("CollisionShape2D")
+	if not collision_shape:
+		collision_shape = CollisionShape2D.new()
+		collision_shape.name = "CollisionShape2D"
+		add_child(collision_shape)
+	
+	# Setup Area2D
+	area_2d = get_node_or_null("Area2D")
+	if not area_2d:
+		area_2d = Area2D.new()
+		area_2d.name = "Area2D"
+		area_2d.collision_layer = 4
+		area_2d.collision_mask = 2
+		area_2d.body_entered.connect(_on_area_body_entered)
+		
+		# Setup Area2D's CollisionShape2D
+		area_collision = area_2d.get_node_or_null("CollisionShape2D")
+		if not area_collision:
+			area_collision = CollisionShape2D.new()
+			area_collision.name = "CollisionShape2D"
+			area_2d.add_child(area_collision)
+		
+		add_child(area_2d)
+	else:
+		area_collision = area_2d.get_node_or_null("CollisionShape2D")
+		if not area_collision:
+			area_collision = CollisionShape2D.new()
+			area_collision.name = "CollisionShape2D"
+			area_2d.add_child(area_collision)
 
 func check_for_overlapping_shapes():
 	await get_tree().process_frame
@@ -312,14 +352,16 @@ func flash_damage():
 		return
 	
 	is_flashing = true
-	var original_color = sprite.modulate
-	sprite.modulate = Color.WHITE
+	if sprite:
+		var original_color = sprite.modulate
+		sprite.modulate = Color.WHITE
+		
+		await get_tree().create_timer(damage_flash_time).timeout
+		
+		if is_instance_valid(self) and sprite:
+			sprite.modulate = original_color
 	
-	await get_tree().create_timer(damage_flash_time).timeout
-	
-	if is_instance_valid(self):
-		sprite.modulate = original_color
-		is_flashing = false
+	is_flashing = false
 
 func move_towards_target(delta: float):
 	var direction = (target_position - global_position).normalized()

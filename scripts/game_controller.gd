@@ -405,9 +405,9 @@ func toggle_store_direct():
 	
 	if store_visible:
 		if Log:
-			Log.debug("GC: Opening store with money:", money, " upgrades:", upgrades)
+			Log.debug("GC: Opening store with money: " + str(money) + " upgrades: " + str(upgrades))
 			if store_instance.has_method("update_with_player_data"):
-				store_instance.update_with_player_data(money, upgrades)
+				store_instance.update_with_player_data(self)
 				Log.debug("GC: Updated store with player data")
 			else:
 				store_instance.player_money = money
@@ -423,17 +423,17 @@ func toggle_store_direct():
 			Log.debug("GC: Closing store")
 		get_tree().paused = store_visible
 		if Log:
-			Log.debug("GC: Pause state set to", store_visible)
+			Log.debug("GC: Pause state set to " + str(store_visible))
 
 func get_upgrades():
 	return upgrades
 	
 func set_upgrades(new_upgrades):
 	if Log:
-		Log.debug("GC: Setting upgrades to: " + str(new_upgrades))
+		Log.debug("GC: _on_upgrades_changed received: " + str(new_upgrades))
 	upgrades = new_upgrades.duplicate()
 	if Log:
-		Log.debug("GC: Set upgrades to: ", upgrades)
+		Log.debug("GC: Set upgrades to: " + str(upgrades))
 	update_launcher_with_upgrades()
 	SignalBus.emit_upgrades_changed(upgrades)
 
@@ -476,33 +476,33 @@ func create_simple_store():
 func update_launcher_with_upgrades():
 	if launcher and is_instance_valid(launcher):
 		if Log:
-			Log.debug("GC: Updating launcher with upgrades: ", upgrades)
+			Log.debug("GC: Updating launcher with upgrades: " + str(upgrades))
 		
 		if "multi_shot" in upgrades:
 			launcher.multi_shot_count = upgrades["multi_shot"]
 			if Log:
-				Log.debug("GC: Set launcher.multi_shot_count directly to: ", launcher.multi_shot_count)
+				Log.debug("GC: Set launcher.multi_shot_count directly to: " + str(launcher.multi_shot_count))
 		
 		if "launch_speed" in upgrades:
 			var base_speed = 350.0
 			var speed_increment = 50.0
 			launcher.launch_speed = base_speed + (upgrades.get("launch_speed", 0) * speed_increment)
 			if Log:
-				Log.debug("GC: Updated launch_speed to: ", launcher.launch_speed)
+				Log.debug("GC: Updated launch_speed to: " + str(launcher.launch_speed))
 			
 		if "cooldown" in upgrades:
 			var base_cooldown = 0.5
 			var cooldown_reduction = 0.05
 			launcher.cooldown_time = max(0.1, base_cooldown - (upgrades.get("cooldown", 0) * cooldown_reduction))
 			if Log:
-				Log.debug("GC: Updated cooldown_time to: ", launcher.cooldown_time)
+				Log.debug("GC: Updated cooldown_time to: " + str(launcher.cooldown_time))
 		
 		if Log:
-			Log.debug("GC: Forcing launcher to update with upgrades: ", upgrades)
+			Log.debug("GC: Forcing launcher to update with upgrades: " + str(upgrades))
 		if launcher.has_method("_on_upgrades_changed"):
 			launcher._on_upgrades_changed(upgrades)
 			if Log:
-				Log.debug("GC: Verified multi_shot_count is now: ", launcher.multi_shot_count)
+				Log.debug("GC: Verified multi_shot_count is now: " + str(launcher.multi_shot_count))
 		else:
 			if Log:
 				Log.error("GC: ERROR - launcher does not have _on_upgrades_changed method")
@@ -534,7 +534,7 @@ func _on_money_changed(new_money):
 
 func _on_upgrades_changed(new_upgrades):
 	if Log:
-		Log.debug("GC: _on_upgrades_changed received: ", new_upgrades)
+		Log.debug("GC: _on_upgrades_changed received: " + str(new_upgrades))
 	upgrades = new_upgrades.duplicate()
 	update_upgrades_display()
 	
@@ -545,12 +545,10 @@ func _on_upgrades_changed(new_upgrades):
 			launcher._on_upgrades_changed(upgrades)
 			
 			if Log:
-				Log.debug("GC: Verifying multi_shot_count in launcher: " + str(launcher.multi_shot_count))
+				Log.debug("GC: Launcher multi_shot_count after update: " + str(launcher.multi_shot_count))
+		else:
 			if Log:
-				Log.debug("GC: Launcher multi_shot_count after update: ", launcher.multi_shot_count)
-	else:
-		if Log:
-			Log.debug("GC: Launcher is not valid in _on_upgrades_changed")
+				Log.debug("GC: Launcher is not valid in _on_upgrades_changed")
 	
 	update_launcher_with_upgrades()
 
@@ -620,7 +618,7 @@ func set_money(new_money):
 	money = new_money
 	update_money_display()
 	if Log:
-		Log.debug("GC: Set money to: ", money)
+		Log.debug("GC: Set money to: " + str(money))
 
 func force_multishot_upgrade():
 	if Log:
@@ -630,7 +628,7 @@ func force_multishot_upgrade():
 	if launcher and is_instance_valid(launcher):
 		launcher.multi_shot_count = upgrades["multi_shot"]
 		if Log:
-			Log.debug("GC: Force-set launcher.multi_shot_count to:", launcher.multi_shot_count)
+			Log.debug("GC: Force-set launcher.multi_shot_count to: " + str(launcher.multi_shot_count))
 		
 		if launcher.has_method("_on_upgrades_changed"):
 			launcher._on_upgrades_changed(upgrades)
@@ -646,7 +644,7 @@ func force_launch_speed_upgrade():
 	if launcher and is_instance_valid(launcher):
 		launcher.launch_speed = 350.0 + (upgrades["launch_speed"] * 50.0)
 		if Log:
-			Log.debug("GC: Force-set launcher.launch_speed to:", launcher.launch_speed)
+			Log.debug("GC: Force-set launcher.launch_speed to: " + str(launcher.launch_speed))
 		
 		if launcher.has_method("_on_upgrades_changed"):
 			launcher._on_upgrades_changed(upgrades)
