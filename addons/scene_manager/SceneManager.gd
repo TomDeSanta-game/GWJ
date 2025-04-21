@@ -124,20 +124,66 @@ func fade_in_place(setted_options: Dictionary = {}) -> void:
 	await change_scene(null, setted_options)
 
 func _replace_scene(path: Variant, options: Dictionary) -> void:
-	_current_scene.queue_free()
+	# Make sure the current scene is properly removed before proceeding
+	if _current_scene:
+		_current_scene.queue_free()
+		# Wait for queue_free to complete
+		await get_tree().process_frame
+		await get_tree().process_frame
+	
 	scene_unloaded.emit()
+	
+	# Safely load scene with error handling
 	var following_scene: PackedScene = _load_scene_resource(path)
+	if not following_scene:
+		push_error("Failed to load scene: " + str(path))
+		# Fallback to direct scene change
+		get_tree().change_scene_to_file(path)
+		return
+	
+	# Safely instantiate scene
 	_current_scene = following_scene.instantiate()
-	_current_scene.tree_entered.connect(options["on_tree_enter"].bind(_current_scene))
-	_current_scene.ready.connect(options["on_ready"].bind(_current_scene))
-	await _tree.create_timer(0.0).timeout
-	_root.add_child(_current_scene)
-	_tree.set_current_scene(_current_scene)
+	if not is_instance_valid(_current_scene):
+		push_error("Failed to instantiate scene: " + str(path))
+		# Fallback to direct scene change
+		get_tree().change_scene_to_file(path)
+		return
+	
+	# Connect signals if the scene is valid and the callbacks are valid
+	if options["on_tree_enter"] != null and options["on_tree_enter"] is Callable:
+		if _current_scene.has_signal("tree_entered"):
+			_current_scene.tree_entered.connect(options["on_tree_enter"].bind(_current_scene))
+	
+	if options["on_ready"] != null and options["on_ready"] is Callable:
+		if _current_scene.has_signal("ready"):
+			_current_scene.ready.connect(options["on_ready"].bind(_current_scene))
+	
+	# Allow frame processing to ensure clean state
+	await _tree.create_timer(0.01).timeout
+	
+	# Add the scene to the tree with fallback
+	if _root and is_instance_valid(_current_scene):
+		_root.add_child(_current_scene)
+		if _tree:
+			_tree.set_current_scene(_current_scene)
+	else:
+		push_error("Error adding scene to tree: " + str(path))
+		# Fallback to direct scene change
+		get_tree().change_scene_to_file(path)
 
 func _load_scene_resource(path: Variant) -> Resource:
 	if path is PackedScene:
 		return path
-	return ResourceLoader.load(path, "PackedScene", 0)
+	
+	if not ResourceLoader.exists(path):
+		push_error("Scene file does not exist: " + str(path))
+		return null
+	
+	var resource = ResourceLoader.load(path, "PackedScene", 0)
+	if not resource:
+		push_error("Failed to load scene resource: " + str(path))
+	
+	return resource
 
 func fade_out(setted_options: Dictionary= {}) -> void:
 	var options = _get_final_options(setted_options)

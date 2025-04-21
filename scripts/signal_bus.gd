@@ -9,6 +9,9 @@ signal score_changed(score)
 signal money_changed(amount)
 signal high_scores_updated(high_scores)
 signal new_high_score(score, position)
+signal bounced
+signal high_scores_loaded(high_scores)
+signal player_money_changed(amount)
 
 func emit_shape_collided(shape, collision_point):
     emit_signal("shape_collided", shape, collision_point)
@@ -35,4 +38,13 @@ func emit_high_scores_updated(high_scores: Array):
     emit_signal("high_scores_updated", high_scores)
     
 func emit_new_high_score(score: int, position: int):
-    emit_signal("new_high_score", score, position)  
+    emit_signal("new_high_score", score, position)
+
+func emit_bounced():
+    emit_signal("bounced")
+    
+func emit_high_scores_loaded(high_scores: Array):
+    emit_signal("high_scores_loaded", high_scores)
+    
+func emit_player_money_changed(amount: int):
+    emit_signal("player_money_changed", amount)  

@@ -43,7 +43,7 @@ func _on_new_high_score(score, pos):
 	
 	var position_label = get_node_or_null("YourScorePosition")
 	if position_label:
-		position_label.text = "YOUR SCORE IS #" + str(pos)
+		position_label.text = "YOUR SCORE IS No." + str(pos)
 		position_label.visible = true
 	
 	var current_score_label = get_node_or_null("CurrentScore")
@@ -63,7 +63,7 @@ func update_high_score_list():
 	high_score_list.clear()
 	
 	for i in range(min(high_scores.size(), 5)):
-		high_score_list.add_item("#" + str(i+1) + ": " + str(high_scores[i]))
+		high_score_list.add_item("No." + str(i+1) + ": " + str(high_scores[i]))
 
 func _on_play_again_pressed():
 	get_tree().change_scene_to_file("res://scenes/MainMenu.tscn") 

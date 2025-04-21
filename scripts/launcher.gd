@@ -15,7 +15,7 @@ var launch_speed = 1200.0
 var reticle_visible = true
 var last_shape_type = -1
 var last_shape_color = -1
-var max_aim_distance = 500.0  # Maximum distance the aim line can extend
+var max_aim_distance = 500.0
 
 func _ready():
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -66,7 +66,6 @@ func setup_required_nodes():
 		add_child(launcher_direction)
 
 func create_aim_indicator():
-	# Remove any existing components
 	var existing_line = get_node_or_null("TrajectoryLine")
 	if existing_line:
 		existing_line.queue_free()
@@ -75,19 +74,17 @@ func create_aim_indicator():
 	if existing_indicator:
 		existing_indicator.queue_free()
 		
-	# Create a new Node2D to hold our aim indicator
 	trajectory_sprite = Node2D.new()
 	trajectory_sprite.name = "TrajectorySprite"
 	trajectory_sprite.z_index = 1000
 	add_child(trajectory_sprite)
 	
-	# Create a simple vertical line using Line2D
 	var line = Line2D.new()
 	line.name = "AimLine"
 	line.width = 3
-	line.default_color = Color(0.5, 0.5, 0.5, 0.6) # Transparent gray
+	line.default_color = Color(0.5, 0.5, 0.5, 0.6)
 	line.z_index = 1000
-	line.points = [Vector2.ZERO, Vector2(0, 500)] # Vertical line
+	line.points = [Vector2.ZERO, Vector2(0, 500)]
 	trajectory_sprite.add_child(line)
 
 func update_aim_direction():
@@ -98,20 +95,16 @@ func update_aim_direction():
 	trajectory_sprite.visible = true
 	
 	var mouse_pos = get_global_mouse_position()
-	var launch_position = global_position + Vector2(0, -30)  # 30 pixels above launcher
+	var launch_position = global_position + Vector2(0, -30)
 	
-	# Ensure we can't aim downward - restrict to above the launcher
 	if mouse_pos.y > launch_position.y:
 		mouse_pos.y = launch_position.y
 	
-	# Calculate direction and distance
 	var direction = (mouse_pos - launch_position).normalized()
 	var distance = min(launch_position.distance_to(mouse_pos), max_aim_distance)
 	
-	# Position at launch point (30 pixels above launcher)
 	trajectory_sprite.global_position = launch_position
 	
-	# Update the line to point toward mouse
 	var line = trajectory_sprite.get_node_or_null("AimLine")
 	if line:
 		line.points = [Vector2.ZERO, direction * distance]
@@ -146,13 +139,10 @@ func launch_shape():
 	var launch_position = global_position + Vector2(0, -30)
 	var direction = (mouse_pos - launch_position).normalized()
 	
-	# Create and launch first shape
 	var shape = current_shape
 	if shape:
-		# Set position directly
 		shape.global_transform = Transform2D(0, launch_position)
 		
-		# Launch the shape
 		shape.apply_central_impulse(direction * launch_speed * 5)
 		shape.linear_velocity = direction * launch_speed * 2
 		
@@ -166,7 +156,6 @@ func launch_shape():
 			launch_sound.pitch_scale = 1.0
 			launch_sound.play()
 	
-	# Prepare for next shot
 	can_launch = false
 	current_shape = null
 	
@@ -193,16 +182,18 @@ func spawn_shape_immediate():
 	last_shape_color = new_color
 	
 	add_child(shape)
-	# Don't set position here - we'll set it explicitly when launching
 	shape.scale = Vector2(0.9, 0.9)
 	shape.z_index = 5
 	current_shape = shape
 	
+	shape.add_to_group("launcher_shapes")
+	
 	return shape
 
 func spawn_shape():
-	if current_shape and is_instance_valid(current_shape) and !current_shape.has_launched:
-		current_shape.queue_free()
+	can_launch = true
+	if is_instance_valid(current_shape):
+		return current_shape
 	
 	return spawn_shape_immediate()
 

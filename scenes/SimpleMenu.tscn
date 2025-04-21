@@ -1,0 +1,178 @@
+[gd_scene load_steps=10 format=3 uid="uid://d2iwb5wxetbgc"]
+
+[ext_resource type="Script" path="res://scripts/simple_menu.gd" id="1_8v5yf"]
+[ext_resource type="FontFile" path="res://assets/fonts/pixel_font.ttf" id="2_xt5f4"]
+[ext_resource type="Shader" path="res://shaders/simple_cozy.gdshader" id="3_rspqn"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_r8fus"]
+shader = ExtResource("3_rspqn")
+shader_parameter/top_color = Color(0.85098, 0.6, 0.301961, 1)
+shader_parameter/bottom_color = Color(0.6, 0.4, 0.301961, 1)
+shader_parameter/speed = 0.1
+
+[sub_resource type="Gradient" id="Gradient_16r8p"]
+offsets = PackedFloat32Array(0, 0.25, 0.75, 1)
+colors = PackedColorArray(1, 0.8, 0.6, 0, 1, 0.8, 0.6, 0.12, 1, 0.8, 0.6, 0.12, 1, 0.8, 0.6, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ljdm1"]
+bg_color = Color(0.45098, 0.294118, 0.207843, 0.501961)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.290196, 0.176471, 0.105882, 0.2)
+shadow_size = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_gqtjf"]
+bg_color = Color(0.54902, 0.356863, 0.243137, 0.552941)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(0.290196, 0.176471, 0.105882, 0.2)
+shadow_size = 3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cdtns"]
+bg_color = Color(0.352941, 0.227451, 0.152941, 0.501961)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5w7gx"]
+bg_color = Color(0.34902, 0.211765, 0.14902, 0.752941)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.54902, 0.380392, 0.25098, 0.301961)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+shadow_color = Color(0.239216, 0.14902, 0.0980392, 0.14902)
+shadow_size = 6
+shadow_offset = Vector2(0, 2)
+
+[node name="root" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_8v5yf")
+
+[node name="ShaderBackground" type="ColorRect" parent="."]
+material = SubResource("ShaderMaterial_r8fus")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Background" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.027451, 0.027451, 0.031373, 1)
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+position = Vector2(576, 324)
+amount = 25
+lifetime = 8.0
+randomness = 1.0
+emission_shape = 3
+emission_rect_extents = Vector2(600, 350)
+gravity = Vector2(0, 0)
+initial_velocity_min = 8.0
+initial_velocity_max = 15.0
+angular_velocity_min = -10.0
+angular_velocity_max = 10.0
+scale_amount_min = 5.0
+scale_amount_max = 10.0
+color = Color(1, 0.8, 0.6, 0.0784314)
+color_ramp = SubResource("Gradient_16r8p")
+
+[node name="CenterContainer" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="Panel" parent="CenterContainer"]
+custom_minimum_size = Vector2(400, 350)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_5w7gx")
+
+[node name="MenuContainer" type="VBoxContainer" parent="CenterContainer/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 40
+
+[node name="Title" type="Label" parent="CenterContainer/Panel/MenuContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.6
+theme_override_colors/font_color = Color(1, 0.882353, 0.72549, 1)
+theme_override_colors/font_shadow_color = Color(0.4, 0.25098, 0.14902, 0.501961)
+theme_override_constants/shadow_offset_x = 2
+theme_override_constants/shadow_offset_y = 2
+theme_override_fonts/font = ExtResource("2_xt5f4")
+theme_override_font_sizes/font_size = 52
+text = "SHAPES CANNON"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ButtonsContainer" type="VBoxContainer" parent="CenterContainer/Panel/MenuContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="PlayButton" type="Button" parent="CenterContainer/Panel/MenuContainer/ButtonsContainer"]
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.882353, 0.72549, 1)
+theme_override_fonts/font = ExtResource("2_xt5f4")
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_ljdm1")
+theme_override_styles/hover = SubResource("StyleBoxFlat_gqtjf")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_cdtns")
+text = "PLAY"
+
+[node name="LevelSelectButton" type="Button" parent="CenterContainer/Panel/MenuContainer/ButtonsContainer"]
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.882353, 0.72549, 1)
+theme_override_fonts/font = ExtResource("2_xt5f4")
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_ljdm1")
+theme_override_styles/hover = SubResource("StyleBoxFlat_gqtjf")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_cdtns")
+text = "LEVEL SELECT"
+
+[node name="QuitButton" type="Button" parent="CenterContainer/Panel/MenuContainer/ButtonsContainer"]
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 0.882353, 0.72549, 1)
+theme_override_fonts/font = ExtResource("2_xt5f4")
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("StyleBoxFlat_ljdm1")
+theme_override_styles/hover = SubResource("StyleBoxFlat_gqtjf")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_cdtns")
+text = "QUIT"

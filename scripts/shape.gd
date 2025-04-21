@@ -1,7 +1,5 @@
 extends RigidBody2D
 
-signal bounced
-
 enum ShapeType { SQUARE, CIRCLE, TRIANGLE }
 enum ShapeColor { RED, BLUE, GREEN, YELLOW, PURPLE, ORANGE }
 
@@ -56,26 +54,22 @@ func _ready():
 	if is_in_group("launcher_shapes"):
 		call_deferred("check_for_overlapping_shapes")
 		
-	# Ensure default physics properties
 	freeze = true
 	can_sleep = false
 
 func setup_required_nodes():
-	# Setup Sprite2D
 	sprite = get_node_or_null("Sprite2D")
 	if not sprite:
 		sprite = Sprite2D.new()
 		sprite.name = "Sprite2D"
 		add_child(sprite)
 	
-	# Setup CollisionShape2D
 	collision_shape = get_node_or_null("CollisionShape2D")
 	if not collision_shape:
 		collision_shape = CollisionShape2D.new()
 		collision_shape.name = "CollisionShape2D"
 		add_child(collision_shape)
 	
-	# Setup Area2D
 	area_2d = get_node_or_null("Area2D")
 	if not area_2d:
 		area_2d = Area2D.new()
@@ -84,7 +78,6 @@ func setup_required_nodes():
 		area_2d.collision_mask = 2
 		area_2d.body_entered.connect(_on_area_body_entered)
 		
-		# Setup Area2D's CollisionShape2D
 		area_collision = area_2d.get_node_or_null("CollisionShape2D")
 		if not area_collision:
 			area_collision = CollisionShape2D.new()
@@ -129,7 +122,6 @@ func _process(delta):
 		else:
 			linear_velocity = linear_velocity.lerp(Vector2.ZERO, delta * 0.1)
 		
-		# Ensure proper physics properties when launched
 		if has_launched and freeze:
 			freeze = false
 			gravity_scale = 0.3
@@ -401,87 +393,29 @@ func create_pixel_explosion():
 		queue_free()
 		return
 		
-	var sprite = visual.get_child(0) if visual.get_child_count() > 0 else null
-	if not sprite or not sprite is Sprite2D:
-		queue_free()
-		return
+	var particles = CPUParticles2D.new()
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.lifetime = 0.8
+	particles.amount = 32
+	particles.speed_scale = 2.0
+	particles.direction = Vector2(0, -1)
+	particles.spread = 180
+	particles.gravity = Vector2(0, 200)
+	particles.initial_velocity_min = 50
+	particles.initial_velocity_max = 100
+	particles.scale_amount_min = 3.0
+	particles.scale_amount_max = 3.0
 	
-	var shape_color = get_shape_color()
-	var duration = 0.8
-	var _explosion_power = 150.0
-	var num_pixels = 10
-	var min_size = 8
-	var max_size = 12
+	var shape_color = color_values[color]
+	particles.color = shape_color
+	particles.position = Vector2.ZERO
+	get_parent().add_child(particles)
+	particles.global_position = global_position
 	
-	visual.visible = false
-	
-	var parent = get_parent()
-	if not parent:
-		queue_free()
-		return
-		
-	var particles_parent = Node2D.new()
-	particles_parent.name = "ExplosionParticles"
-	particles_parent.global_position = global_position
-	parent.add_child(particles_parent)
-	
-	for i in range(num_pixels):
-		var pixel_size = randf_range(min_size, max_size)
-		
-		var pixel = ColorRect.new()
-		pixel.size = Vector2(pixel_size, pixel_size)
-		
-		var pixel_color = shape_color
-		pixel_color = pixel_color.lightened(randf_range(-0.2, 0.2))
-		pixel.color = pixel_color
-		
-		var offset = Vector2(randf_range(-5, 5), randf_range(-5, 5))
-		pixel.position = offset - pixel.size/2
-		
-		var angle = randf_range(0, TAU)
-		var distance = randf_range(20, 80)
-		var target_pos = Vector2(cos(angle), sin(angle)) * distance
-		
-		particles_parent.add_child(pixel)
-		
-		var tween = particles_parent.create_tween()
-		tween.set_parallel(true)
-		tween.tween_property(pixel, "position", target_pos, duration)
-		tween.tween_property(pixel, "rotation", randf_range(-PI, PI), duration)
-		tween.tween_property(pixel, "color:a", 0.0, duration)
-	
-	var flash = ColorRect.new()
-	flash.size = Vector2(40, 40)
-	flash.position = -flash.size/2
-	flash.color = shape_color.lightened(0.5)
-	flash.color.a = 0.6
-	particles_parent.add_child(flash)
-	
-	var flash_tween = particles_parent.create_tween()
-	flash_tween.tween_property(flash, "color:a", 0.0, 0.15)
-	
-	var weak_flash = weakref(flash)
-	flash_tween.tween_callback(func(): 
-		var flash_ref = weak_flash.get_ref()
-		if flash_ref and is_instance_valid(flash_ref) and not flash_ref.is_queued_for_deletion():
-			flash_ref.queue_free()
-	)
-	
-	var self_weak = weakref(self)
-	var delete_timer = get_tree().create_timer(0.1)
-	delete_timer.timeout.connect(func():
-		var self_ref = self_weak.get_ref()
-		if self_ref and is_instance_valid(self_ref) and not self_ref.is_queued_for_deletion():
-			self_ref.queue_free()
-	)
-	
-	var weak_particles = weakref(particles_parent)
-	var cleanup_timer = get_tree().create_timer(duration)
-	cleanup_timer.timeout.connect(func(): 
-		var particles_ref = weak_particles.get_ref()
-		if particles_ref and is_instance_valid(particles_ref) and not particles_ref.is_queued_for_deletion():
-			particles_ref.queue_free()
-	)
+	health = 0
+	queue_free()
 
 func get_shape_color() -> Color:
 	match color:
@@ -544,7 +478,7 @@ func handle_static_collision(body):
 
 func _on_area_body_entered(body):
 	if has_launched and body.is_in_group("player"):
-		health = 0  # Set health to zero to trigger destruction
+		health = 0
 		take_damage()
 		if game_controller:
 			game_controller.on_shape_hit_player(self)
