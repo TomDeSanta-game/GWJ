@@ -16,12 +16,6 @@ func find_icons():
 		var crown_icon = high_score_display.get_node_or_null("CrownIcon")
 		if crown_icon:
 			icons.append(crown_icon)
-	
-	var money_display = get_parent().get_node_or_null("MoneyDisplay")
-	if money_display:
-		var coin_icon = money_display.get_node_or_null("CoinIcon")
-		if coin_icon:
-			icons.append(coin_icon)
 
 func animate_icons():
 	for icon in icons:

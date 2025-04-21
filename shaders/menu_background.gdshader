@@ -1,36 +1,31 @@
 shader_type canvas_item;
 
-uniform vec2 direction = vec2(1.0, 0.0);
-uniform float speed_scale = 0.1;
-uniform vec4 color1 : source_color = vec4(0.0, 0.1, 0.2, 1.0);
-uniform vec4 color2 : source_color = vec4(0.1, 0.3, 0.5, 1.0);
-uniform float pattern_size = 32.0;
-uniform float wave_amplitude = 0.1;
-uniform float wave_frequency = 5.0;
-uniform float wave_speed = 1.0;
+uniform vec4 color1 : source_color = vec4(0.1, 0.2, 0.3, 1.0);
+uniform vec4 color2 : source_color = vec4(0.05, 0.05, 0.1, 1.0);
+uniform float time_scale = 0.5;
+uniform float wave_size = 10.0;
+uniform float distortion = 0.1;
+uniform float brightness = 0.8;
 
-float hex_pattern(vec2 p, float size) {
-    p = abs(fract(p / size) - 0.5);
-    return abs(max(p.x * 1.5 + p.y, p.y * 2.0) - 1.0);
+float random(vec2 uv) {
+    return fract(sin(dot(uv.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
 void fragment() {
-    // Moving coordinates
-    vec2 moving_uv = UV + TIME * direction * speed_scale;
+    vec2 uv = UV;
+    float time = TIME * time_scale;
     
-    // Apply wave distortion
-    float wave = sin(moving_uv.x * wave_frequency + TIME * wave_speed) * wave_amplitude;
-    moving_uv.y += wave;
+    vec2 moving_uv = uv + vec2(sin(time) * 0.01, cos(time) * 0.01);
     
-    // Create pattern
-    float pattern = hex_pattern(moving_uv, pattern_size / TEXTURE_PIXEL_SIZE.x);
+    float wave = sin(moving_uv.x * wave_size + time) * sin(moving_uv.y * wave_size + time) * distortion;
+    moving_uv += vec2(wave, wave);
     
-    // Mix colors based on pattern
-    vec4 color = mix(color1, color2, pattern);
+    float pattern = sin(moving_uv.x * 20.0) * sin(moving_uv.y * 20.0);
     
-    // Add subtle pulse
-    float pulse = 0.5 + 0.5 * sin(TIME * 0.5);
-    color = mix(color, color * 1.2, pulse * 0.1);
+    vec4 color = mix(color1, color2, pattern * 0.5 + 0.5);
+    
+    float pulse = sin(time) * 0.05 + 0.95;
+    color.rgb *= (brightness + wave) * pulse;
     
     COLOR = color;
 } 

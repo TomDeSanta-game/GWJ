@@ -5,128 +5,139 @@ extends Control
 # Store level information for easy access - can be used in the future
 var levels = [
 	{
-		"name": "Default Level",
+		"name": "Default",
+		"description": "A basic level with clean visuals",
 		"scene_path": "res://scenes/MainNew.tscn",
-		"description": "The classic shapes cannon experience.",
-		"gravity": 1.0,
-		"thumbnail_color": Color(0.4, 0.6, 0.8)
+		"difficulty": 1,
+		"unlocked": true
 	},
 	{
 		"name": "Truck Interior",
-		"scene_path": "res://scenes/TruckLevel.tscn", 
-		"description": "Challenge yourself by playing inside a moving truck!\nDeal with bumps and vibrations.",
-		"gravity": 1.0,
-		"thumbnail_color": Color(0.5, 0.5, 0.55)
+		"description": "Play from inside a moving truck",
+		"scene_path": "res://scenes/TruckLevel.tscn",
+		"difficulty": 2,
+		"unlocked": true
 	},
 	{
 		"name": "Moon Surface",
+		"description": "Play on the surface of the moon",
 		"scene_path": "res://scenes/MoonLevel.tscn",
-		"description": "Low gravity shapes adventure on the lunar surface.\nWatch your shots go further!",
-		"gravity": 0.16,
-		"thumbnail_color": Color(0.8, 0.8, 0.85)
+		"difficulty": 3,
+		"unlocked": true
 	}
 ]
 
-# Preload scene resources
+var current_level_index = 0
+var main_menu_scene = preload("res://scenes/MainMenu.tscn")
 var truck_level_scene = preload("res://scenes/TruckLevel.tscn")
 var moon_level_scene = preload("res://scenes/MoonLevel.tscn")
 var simple_menu_scene = preload("res://scenes/SimpleMenu.tscn")
 
 func _ready():
-	Log.info("Level select screen ready")
+	randomize()
 	
-	# Check if nodes exist
-	Log.debug("Background exists: " + str(has_node("Background")))
-	Log.debug("VBoxContainer exists: " + str(has_node("VBoxContainer")))
-	Log.debug("TruckButton exists: " + str(has_node("VBoxContainer/TruckButton")))
-	Log.debug("MoonButton exists: " + str(has_node("VBoxContainer/MoonButton")))
-	Log.debug("BackButton exists: " + str(has_node("BackButton")))
+	if not get_node_or_null("CenterContainer/Panel/VBoxContainer/Buttons/BackButton"):
+		Log.error("BackButton not found in expected path")
+		return
 	
-	# Print full node tree for debugging
-	Log.debug("Node tree structure:")
-	_print_node_tree(self, 0)
+	if not get_node_or_null("CenterContainer/Panel/VBoxContainer/Buttons/PlayButton"):
+		Log.error("PlayButton not found in expected path")
+		return
 	
-	# Check if signals are connected
-	Log.debug("TruckButton has connections: " + str(get_node("VBoxContainer/TruckButton").get_signal_connection_list("pressed").size() > 0))
-	Log.debug("MoonButton has connections: " + str(get_node("VBoxContainer/MoonButton").get_signal_connection_list("pressed").size() > 0))
-	Log.debug("BackButton has connections: " + str(get_node("BackButton").get_signal_connection_list("pressed").size() > 0))
+	print_node_tree()
 	
-	# Animate entrance - simple fade in
+	setup_button_connections()
+	
+	if not $CenterContainer/Panel/VBoxContainer/Buttons/BackButton.pressed.is_connected(_on_back_button_pressed):
+		Log.error("BackButton signal not connected")
+	
 	modulate.a = 0
 	var tween = create_tween()
-	tween.tween_property(self, "modulate:a", 1.0, 0.4).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "modulate:a", 1.0, 0.5).set_ease(Tween.EASE_OUT)
 
-# Helper function to print node tree
-func _print_node_tree(node, level):
-	var indent = ""
-	for i in range(level):
-		indent += "  "
-	Log.debug(indent + node.name + " (" + node.get_class() + ")")
+func print_node_tree(node = self, indent = 0):
+	if node == null:
+		return
+	var indentation = ""
+	for i in range(indent):
+		indentation += "  "
+	Log.debug(indentation + node.name + " (" + node.get_class() + ")")
 	for child in node.get_children():
-		_print_node_tree(child, level + 1)
+		print_node_tree(child, indent + 1)
 
-# Input function for keyboard shortcuts
 func _input(event):
 	if event is InputEventKey:
-		if event.pressed and event.keycode == KEY_ESCAPE:
-			Log.info("ESC key pressed - returning to main menu")
-			_on_back_button_pressed()
-		elif event.pressed and event.keycode == KEY_1:
-			Log.info("1 key pressed - quick access to Truck level")
-			_on_truck_button_pressed()
-		elif event.pressed and event.keycode == KEY_2:
-			Log.info("2 key pressed - quick access to Moon level")
-			_on_moon_button_pressed()
-		elif event.pressed and event.keycode == KEY_M:
-			Log.info("M key pressed - returning to main menu")
-			_on_back_button_pressed()
+		if event.pressed and event.keycode == KEY_M:
+			get_tree().change_scene_to_packed(main_menu_scene)
+		elif event.pressed and event.keycode == KEY_S:
+			get_tree().change_scene_to_packed(simple_menu_scene)
+		elif event.pressed and event.keycode == KEY_LEFT:
+			change_level(-1)
+		elif event.pressed and event.keycode == KEY_RIGHT:
+			change_level(1)
+		elif event.pressed and event.keycode == KEY_ENTER or event.keycode == KEY_SPACE:
+			_on_play_button_pressed()
 
-# Button event handlers - these are connected in the scene
-
-func _on_truck_button_pressed():
-	Log.info("Truck button pressed")
-	animate_exit()
-	await get_tree().create_timer(0.3).timeout
+func setup_button_connections():
+	$CenterContainer/Panel/VBoxContainer/Buttons/BackButton.pressed.connect(_on_back_button_pressed)
+	$CenterContainer/Panel/VBoxContainer/Buttons/PlayButton.pressed.connect(_on_play_button_pressed)
+	$CenterContainer/Panel/VBoxContainer/LevelNavigation/PrevButton.pressed.connect(func(): change_level(-1))
+	$CenterContainer/Panel/VBoxContainer/LevelNavigation/NextButton.pressed.connect(func(): change_level(1))
 	
-	if truck_level_scene:
-		var result = get_tree().change_scene_to_packed(truck_level_scene)
-		if result != OK:
-			Log.error("Failed to load truck level scene. Error: " + str(result))
-			get_tree().change_scene_to_file("res://scenes/TruckLevel.tscn")
-	else:
-		Log.error("Failed to preload truck level scene")
-		get_tree().change_scene_to_file("res://scenes/TruckLevel.tscn")
+	$CenterContainer/Panel/VBoxContainer/Buttons/BackButton.mouse_entered.connect(
+		func(): _on_button_hover($CenterContainer/Panel/VBoxContainer/Buttons/BackButton))
+	$CenterContainer/Panel/VBoxContainer/Buttons/BackButton.mouse_exited.connect(
+		func(): _on_button_exit($CenterContainer/Panel/VBoxContainer/Buttons/BackButton))
+	$CenterContainer/Panel/VBoxContainer/Buttons/PlayButton.mouse_entered.connect(
+		func(): _on_button_hover($CenterContainer/Panel/VBoxContainer/Buttons/PlayButton))
+	$CenterContainer/Panel/VBoxContainer/Buttons/PlayButton.mouse_exited.connect(
+		func(): _on_button_exit($CenterContainer/Panel/VBoxContainer/Buttons/PlayButton))
 
-func _on_moon_button_pressed():
-	Log.info("Moon button pressed")
-	animate_exit()
-	await get_tree().create_timer(0.3).timeout
+func _on_button_hover(button):
+	var tween = create_tween()
+	tween.tween_property(button, "scale", Vector2(1.05, 1.05), 0.1).set_ease(Tween.EASE_OUT)
 	
-	if moon_level_scene:
-		var result = get_tree().change_scene_to_packed(moon_level_scene)
-		if result != OK:
-			Log.error("Failed to load moon level scene. Error: " + str(result))
-			get_tree().change_scene_to_file("res://scenes/MoonLevel.tscn")
-	else:
-		Log.error("Failed to preload moon level scene")
-		get_tree().change_scene_to_file("res://scenes/MoonLevel.tscn")
+func _on_button_exit(button):
+	var tween = create_tween()
+	tween.tween_property(button, "scale", Vector2(1, 1), 0.1).set_ease(Tween.EASE_IN)
 
 func _on_back_button_pressed():
-	Log.info("Back button pressed")
-	animate_exit()
-	await get_tree().create_timer(0.3).timeout
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.3).set_ease(Tween.EASE_IN)
+	await tween.finished
 	
-	if simple_menu_scene:
-		var result = get_tree().change_scene_to_packed(simple_menu_scene)
-		if result != OK:
-			Log.error("Failed to load simple menu scene. Error: " + str(result))
-			get_tree().change_scene_to_file("res://scenes/SimpleMenu.tscn")
-	else:
-		Log.error("Failed to preload simple menu scene")
-		get_tree().change_scene_to_file("res://scenes/SimpleMenu.tscn")
+	get_tree().change_scene_to_packed(main_menu_scene)
 
-# Simple exit animation
+func _on_play_button_pressed():
+	var tween = create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.3).set_ease(Tween.EASE_IN)
+	await tween.finished
+	
+	match current_level_index:
+		0: get_tree().change_scene_to_file("res://scenes/MainNew.tscn")
+		1: get_tree().change_scene_to_file("res://scenes/TruckLevel.tscn")
+		2: get_tree().change_scene_to_file("res://scenes/MoonLevel.tscn")
+		_: get_tree().change_scene_to_file("res://scenes/MainNew.tscn")
+
+func change_level(direction):
+	current_level_index = (current_level_index + direction) % levels.size()
+	if current_level_index < 0:
+		current_level_index = levels.size() - 1
+	
+	update_level_display()
+
+func update_level_display():
+	var level = levels[current_level_index]
+	$CenterContainer/Panel/VBoxContainer/LevelInfo/LevelName.text = level.name
+	$CenterContainer/Panel/VBoxContainer/LevelInfo/LevelDescription.text = level.description
+	
+	var difficulty_stars = ""
+	for i in range(level.difficulty):
+		difficulty_stars += "★"
+	for i in range(3 - level.difficulty):
+		difficulty_stars += "☆"
+	$CenterContainer/Panel/VBoxContainer/LevelInfo/DifficultyStars.text = difficulty_stars
+
 func animate_exit():
-	# Fade out the entire menu
 	var tween = create_tween()
 	tween.tween_property(self, "modulate:a", 0.0, 0.3).set_ease(Tween.EASE_IN) 

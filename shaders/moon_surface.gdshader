@@ -1,84 +1,81 @@
 shader_type canvas_item;
 
-uniform vec4 moon_color : source_color = vec4(0.8, 0.8, 0.85, 1.0);
-uniform vec4 shadow_color : source_color = vec4(0.1, 0.1, 0.15, 1.0);
-uniform vec4 star_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
-uniform float crater_density = 0.8;
-uniform float dust_amount = 0.15;
-uniform float star_density = 100.0;
+uniform vec4 moon_color : source_color = vec4(0.85, 0.87, 0.9, 1.0);
+uniform vec4 crater_color : source_color = vec4(0.7, 0.72, 0.75, 1.0);
+uniform vec4 horizon_color : source_color = vec4(0.1, 0.12, 0.25, 1.0);
+uniform vec4 sky_color : source_color = vec4(0.05, 0.07, 0.2, 1.0);
 
-// Noise functions for various effects
-float rand(vec2 co) {
-    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
 
 float noise(vec2 p) {
-    vec2 ip = floor(p);
-    vec2 u = fract(p);
-    u = u * u * (3.0 - 2.0 * u);
+    vec2 i = floor(p);
+    vec2 f = fract(p);
     
-    float res = mix(
-        mix(rand(ip), rand(ip + vec2(1.0, 0.0)), u.x),
-        mix(rand(ip + vec2(0.0, 1.0)), rand(ip + vec2(1.0, 1.0)), u.x), u.y);
-    return res * res;
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    
+    f = f * f * (3.0 - 2.0 * f);
+    
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
 void fragment() {
-    // Base moon surface with noise
     vec2 uv = UV;
     
-    // Create moon surface texture
-    float large_noise = noise(uv * 2.0) * 0.5;
-    float medium_noise = noise(uv * 8.0) * 0.3;
-    float small_noise = noise(uv * 32.0) * 0.2;
+    float lunar_surface = smoothstep(0.4, 0.6, uv.y);
     
-    // Combine noise for lunar surface
-    float surface_texture = large_noise + medium_noise + small_noise;
+    float lunar_texture = noise(uv * 10.0) * 0.2 + 
+                         noise(uv * 20.0) * 0.1 + 
+                         noise(uv * 40.0) * 0.05;
     
-    // Create craters
-    float crater_value = 0.0;
-    for (float i = 1.0; i < 5.0; i++) {
-        vec2 crater_pos = vec2(
-            rand(vec2(i * 0.1, 0.0)) * 0.8 + 0.1,
-            rand(vec2(0.0, i * 0.1)) * 0.8 + 0.1
+    vec3 surface_color = mix(moon_color.rgb, crater_color.rgb, lunar_texture);
+    
+    float crater_mask = 0.0;
+    for (int i = 0; i < 5; i++) {
+        float size = 0.1 + 0.2 * hash(vec2(float(i), 12.34));
+        vec2 pos = vec2(
+            0.2 + 0.6 * hash(vec2(float(i), 45.67)),
+            0.55 + 0.3 * hash(vec2(float(i), 78.91))
         );
-        float size = rand(vec2(i, i)) * 0.1 + 0.02;
-        float dist = distance(uv, crater_pos);
-        float crater_shape = smoothstep(size, size * 0.8, dist) * smoothstep(0.0, size * 0.3, dist);
-        crater_value += crater_shape * crater_density;
+        
+        float crater = smoothstep(size, size * 0.8, distance(uv, pos));
+        crater *= smoothstep(size * 1.2, size, distance(uv, pos));
+        
+        crater_mask = max(crater_mask, crater * 0.5);
     }
     
-    // Starry background (for the sky)
-    float stars = 0.0;
-    if (uv.y < 0.5) { // Only show stars in the "sky" part
-        for (float i = 1.0; i < 5.0; i++) {
-            vec2 star_pos = vec2(
-                rand(vec2(i, 0.0)) * 2.0, 
-                rand(vec2(0.0, i)) * 0.5
-            );
-            float size = 0.002;
-            float star = 1.0 - smoothstep(0.0, size, distance(uv, star_pos));
-            stars += star * rand(star_pos);
+    surface_color = mix(surface_color, crater_color.rgb * 0.8, crater_mask);
+    
+    vec3 stars = vec3(0.0);
+    if (uv.y < 0.5) {
+        for (int i = 0; i < 3; i++) {
+            float star_layer = 0.0;
+            float scale = 150.0 + float(i) * 100.0;
+            for (int j = 0; j < 20; j++) {
+                vec2 star_pos = vec2(
+                    hash(vec2(float(j) * 1.23, float(i) * 2.34)), 
+                    hash(vec2(float(j) * 3.45, float(i) * 4.56)) * 0.5
+                );
+                float star_size = 0.001 + 0.002 * hash(vec2(float(j) * 5.67, float(i) * 6.78));
+                star_layer += smoothstep(star_size, 0.0, distance(uv, star_pos));
+            }
+            stars += star_layer * vec3(0.8, 0.85, 1.0) * (0.2 + 0.1 * float(i));
         }
-        stars *= step(0.98, rand(floor(uv * star_density)));
     }
     
-    // Add horizon line
     float horizon = smoothstep(0.45, 0.55, uv.y);
     
-    // Lunar dust effect
-    float dust = noise(uv * 50.0 + TIME * vec2(0.01, 0.0)) * dust_amount;
+    float dust = noise(vec2(uv.x * 10.0 + TIME * 0.2, uv.y * 5.0)) * 0.1 * (1.0 - uv.y);
     
-    // Combine all effects
-    vec4 color = mix(star_color, moon_color, horizon);
-    color = mix(color, shadow_color, crater_value);
-    color.rgb = mix(color.rgb, moon_color.rgb, surface_texture);
-    color.rgb += star_color.rgb * stars;
-    color.rgb += vec3(dust);
+    vec3 final_color = mix(sky_color.rgb + stars, surface_color, horizon);
+    final_color += dust * moon_color.rgb;
     
-    // Add a slight blue Earth glow near the horizon
-    float earth_glow = (1.0 - horizon) * 0.1;
-    color.rgb += vec3(0.0, 0.0, earth_glow);
+    float earth_glow = smoothstep(0.7, 0.0, distance(uv, vec2(0.8, 0.2))) * 0.1 * (1.0 - horizon);
+    final_color += vec3(0.1, 0.3, 0.5) * earth_glow;
     
-    COLOR = color;
+    COLOR = vec4(final_color, 1.0);
 } 

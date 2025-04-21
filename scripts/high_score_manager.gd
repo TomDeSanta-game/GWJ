@@ -1,10 +1,8 @@
 extends Node
 
 const SAVE_FILE_PATH = "user://high_scores.save"
-const GAME_DATA_PATH = "user://game_data.save"
 
 var high_scores: Array = []
-var player_money: int = 0
 var max_high_scores: int = 10
 var initialized: bool = false
 var is_high_score_panel_shown: bool = false
@@ -23,15 +21,6 @@ func _ready():
 	else:
 		generate_default_high_scores()
 		save_high_scores()
-	
-	if FileAccess.file_exists(GAME_DATA_PATH):
-		player_money = load_game_data()
-		if player_money <= 0:
-			player_money = 100
-			save_game_data()
-	else:
-		player_money = 100
-		save_game_data()
 	
 	initialized = true
 	SignalBus.emit_high_scores_updated(high_scores)
@@ -93,41 +82,6 @@ func load_high_scores():
 	
 	return high_scores
 
-func save_game_data():
-	ensure_user_directory_exists()
-	
-	var file = FileAccess.open(GAME_DATA_PATH, FileAccess.WRITE)
-	if file:
-		var save_data = {
-			"player_money": player_money
-		}
-		file.store_var(save_data)
-		file.close()
-		return true
-	
-	return false
-
-func load_game_data():
-	if not FileAccess.file_exists(GAME_DATA_PATH):
-		return 0
-		
-	var file = FileAccess.open(GAME_DATA_PATH, FileAccess.READ)
-	if not file:
-		return 0
-		
-	var data = file.get_var()
-	file.close()
-	
-	if data == null or typeof(data) != TYPE_DICTIONARY or not data.has("player_money"):
-		if FileAccess.file_exists(GAME_DATA_PATH):
-			var dir = DirAccess.open("user://")
-			if dir:
-				dir.remove(GAME_DATA_PATH.replace("user://", ""))
-		return 0
-	
-	player_money = data["player_money"] 
-	return player_money
-
 func add_high_score(score: int):
 	if score <= 0:
 		return -1
@@ -160,31 +114,6 @@ func is_high_score(score: int):
 		
 	return score > high_scores[high_scores.size() - 1]
 
-func set_player_money(amount: int):
-	player_money = amount
-	save_game_data()
-	SignalBus.emit_money_changed(player_money)
-	SignalBus.emit_player_money_changed(player_money)
-
-func add_player_money(amount: int):
-	player_money += amount
-	save_game_data()
-	SignalBus.emit_money_changed(player_money)
-	SignalBus.emit_player_money_changed(player_money)
-
-func spend_player_money(amount: int) -> bool:
-	if player_money >= amount:
-		player_money -= amount
-		save_game_data()
-		SignalBus.emit_money_changed(player_money)
-		SignalBus.emit_player_money_changed(player_money)
-		return true
-	
-	return false
-
-func get_player_money() -> int:
-	return player_money
-
 func reset_save_files():
 	ensure_user_directory_exists()
 	
@@ -193,20 +122,11 @@ func reset_save_files():
 		if dir:
 			dir.remove(SAVE_FILE_PATH.replace("user://", ""))
 	
-	if FileAccess.file_exists(GAME_DATA_PATH):
-		var dir = DirAccess.open("user://")
-		if dir:
-			dir.remove(GAME_DATA_PATH.replace("user://", ""))
-	
 	generate_default_high_scores()
-	player_money = 100
 	
 	save_high_scores()
-	save_game_data()
 	
 	SignalBus.emit_high_scores_updated(high_scores)
 	SignalBus.emit_high_scores_loaded(high_scores)
-	SignalBus.emit_money_changed(player_money)
-	SignalBus.emit_player_money_changed(player_money)
 	
 	return true 

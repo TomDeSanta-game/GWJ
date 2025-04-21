@@ -6,12 +6,12 @@ signal shapes_popped(count)
 signal enemy_destroyed(enemy)
 signal game_over_triggered
 signal score_changed(score)
-signal money_changed(amount)
 signal high_scores_updated(high_scores)
 signal new_high_score(score, position)
 signal bounced
 signal high_scores_loaded(high_scores)
-signal player_money_changed(amount)
+signal special_enemy_destroyed(enemy_position, enemy_type)
+signal bullet_time_activated
 
 func emit_shape_collided(shape, collision_point):
     emit_signal("shape_collided", shape, collision_point)
@@ -31,9 +31,6 @@ func emit_game_over_triggered():
 func emit_score_changed(score: int):
     emit_signal("score_changed", score)
 
-func emit_money_changed(amount: int):
-    emit_signal("money_changed", amount)
-
 func emit_high_scores_updated(high_scores: Array):
     emit_signal("high_scores_updated", high_scores)
     
@@ -45,6 +42,9 @@ func emit_bounced():
     
 func emit_high_scores_loaded(high_scores: Array):
     emit_signal("high_scores_loaded", high_scores)
+
+func emit_special_enemy_destroyed(enemy_position: Vector2, enemy_type: String):
+    emit_signal("special_enemy_destroyed", enemy_position, enemy_type)
     
-func emit_player_money_changed(amount: int):
-    emit_signal("player_money_changed", amount)  
+func emit_bullet_time_activated():
+    emit_signal("bullet_time_activated")  
