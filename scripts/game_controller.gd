@@ -18,7 +18,6 @@ extends Node
 @onready var crown_icon = get_node_or_null("HighScoreDisplay/CrownIcon")
 @onready var money_label = get_node_or_null("MoneyDisplay/MoneyLabel")
 @onready var coin_icon = get_node_or_null("MoneyDisplay/CoinIcon")
-@onready var upgrades_label = get_node_or_null("UpgradesDisplay/UpgradesLabel")
 @onready var coin_shine = coin_icon.get_node_or_null("CoinShine") if coin_icon else null
 @onready var launcher = get_node_or_null("Launcher")
 @onready var canvas_layer = $CanvasLayer
@@ -31,15 +30,10 @@ var is_game_over: bool = false
 var level_number: int = 1
 var shapes_destroyed: int = 0
 var shapes_for_next_level: int = 10
-var upgrades = {}
 var game_running: bool = false
 
 var enemy_speed: float = 70.0
 var time_since_last_spawn: float = 0.0
-
-var store_instance = null
-var store_scene = null
-var store_visible = false
 
 var launcher_path = ""
 
@@ -56,8 +50,6 @@ var score_multiplier: float = 1.0
 
 var total_score_this_game: float = 0.0
 var current_shapes: Array = []
-
-var temp_in_store: bool = false
 
 func _ready():
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -81,14 +73,12 @@ func _ready():
 	
 	if high_score_manager != null and high_score_manager.has_method("get_player_money"):
 		money = high_score_manager.get_player_money()
-		upgrades = high_score_manager.get_player_upgrades().duplicate()
 		if Log:
-			Log.debug("GC: Got money: " + str(money) + " and upgrades: " + str(upgrades))
+			Log.debug("GC: Got money: " + str(money))
 	else:
 		if Log:
 			Log.error("GC: High score manager doesn't have required methods")
 		money = 0
-		upgrades = {"multi_shot": 1}
 	
 	if launcher:
 		if Log:
@@ -97,11 +87,6 @@ func _ready():
 			Log.debug("GC: launcher script instance_id: " + str(launcher.get_instance_id()))
 		
 		launcher_path = launcher.get_path()
-		
-		if "multi_shot_count" in launcher:
-			launcher.multi_shot_count = upgrades.get("multi_shot", 1)
-			if Log:
-				Log.debug("GC: Setting initial multi_shot_count to: " + str(launcher.multi_shot_count))
 	else:
 		if Log:
 			Log.debug("GC: launcher is null!")
@@ -115,16 +100,6 @@ func _ready():
 	if not SignalBus.money_changed.is_connected(_on_money_changed):
 		SignalBus.money_changed.connect(_on_money_changed)
 	
-	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
-		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
-	
-	if upgrades.size() == 0:
-		upgrades = {"multi_shot": 1}
-	
-	update_launcher_with_upgrades()
-	
-	SignalBus.emit_upgrades_changed(upgrades)
-	
 	randomize()
 	
 	setup_input_map()
@@ -132,13 +107,6 @@ func _ready():
 	spawn_initial_enemies()
 	update_high_score_display()
 	update_money_display()
-	
-	create_simple_store()
-	
-	SignalBus.emit_upgrades_changed(upgrades)
-	
-	if launcher and Log:
-		Log.debug("GC: Final launcher multi_shot_count: " + str(launcher.multi_shot_count))
 
 func add_high_score_manager(node):
 	add_child(node)
@@ -163,9 +131,6 @@ func connect_signals():
 	
 	if not SignalBus.high_scores_updated.is_connected(func(_high_scores): update_high_score_display()):
 		SignalBus.high_scores_updated.connect(func(_high_scores): update_high_score_display())
-	
-	if not SignalBus.upgrades_changed.is_connected(func(new_upgrades): upgrades = new_upgrades; update_upgrades_display()):
-		SignalBus.upgrades_changed.connect(func(new_upgrades): upgrades = new_upgrades; update_upgrades_display())
 
 func setup_input_map():
 	if not InputMap.has_action("fire"):
@@ -180,15 +145,6 @@ func setup_input_map():
 		key_event.keycode = KEY_SPACE
 		key_event.pressed = true
 		InputMap.action_add_event("fire", key_event)
-	
-	if InputMap.has_action("open"):
-		InputMap.erase_action("open")
-		
-	InputMap.add_action("open")
-	var open_key = InputEventKey.new()
-	open_key.keycode = KEY_E
-	open_key.pressed = true
-	InputMap.action_add_event("open", open_key)
 
 func _process(delta):
 	if is_game_over:
@@ -376,151 +332,6 @@ func update_money_display():
 			tween.parallel().tween_property(coin_shine, "scale", Vector2(0.5, 0.5), 0.075)
 			tween.tween_property(coin_shine, "scale", Vector2(0.3, 0.3), 0.075)
 
-func _input(event):
-	if event is InputEventKey and event.pressed and !event.is_echo() and event.keycode == KEY_E:
-		toggle_store_direct()
-
-func update_pause_state():
-	var store = $CanvasLayer.get_node_or_null("StoreControl")
-	get_tree().paused = store and store.visible
-	
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-func toggle_store_direct():
-	if store_instance == null or !is_instance_valid(store_instance):
-		create_simple_store()
-		if store_instance == null:
-			if Log:
-				Log.error("GC: Failed to create store instance")
-			return
-	
-	store_visible = !store_visible
-	store_instance.visible = store_visible
-	
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	
-	var parent = store_instance.get_parent()
-	if parent and parent.visible != store_visible:
-		parent.visible = store_visible
-	
-	if store_visible:
-		if Log:
-			Log.debug("GC: Opening store with money: " + str(money) + " upgrades: " + str(upgrades))
-			if store_instance.has_method("update_with_player_data"):
-				store_instance.update_with_player_data(self)
-				Log.debug("GC: Updated store with player data")
-			else:
-				store_instance.player_money = money
-				store_instance.player_upgrades = upgrades.duplicate()
-				if store_instance.has_method("update_money_display"):
-					store_instance.update_money_display()
-				if store_instance.has_method("setup_price_displays"):
-					store_instance.setup_price_displays()
-				Log.debug("GC: Manually set store data")
-		get_viewport().set_input_as_handled()
-	else:
-		if Log:
-			Log.debug("GC: Closing store")
-		get_tree().paused = store_visible
-		if Log:
-			Log.debug("GC: Pause state set to " + str(store_visible))
-
-func get_upgrades():
-	return upgrades
-	
-func set_upgrades(new_upgrades):
-	if Log:
-		Log.debug("GC: _on_upgrades_changed received: " + str(new_upgrades))
-	upgrades = new_upgrades.duplicate()
-	if Log:
-		Log.debug("GC: Set upgrades to: " + str(upgrades))
-	update_launcher_with_upgrades()
-	SignalBus.emit_upgrades_changed(upgrades)
-
-func update_upgrades_display():
-	if not upgrades_label:
-		return
-		
-	var upgrade_text = "Upgrades: "
-	for upgrade in upgrades:
-		upgrade_text += upgrade + ": " + str(upgrades[upgrade]) + " "
-	upgrades_label.text = upgrade_text
-
-func create_simple_store():
-	store_scene = preload("res://scenes/Store.tscn")
-	if store_scene:
-		if Log:
-			Log.debug("GC: Creating store instance")
-		store_instance = store_scene.instantiate()
-		store_instance.name = "StoreControl"
-		store_instance.visible = false
-		store_instance.process_mode = Node.PROCESS_MODE_ALWAYS
-		
-		if "player_money" in store_instance:
-			store_instance.player_money = money
-		if "player_upgrades" in store_instance:
-			store_instance.player_upgrades = upgrades.duplicate()
-		
-		if Log:
-			Log.debug("GC: Setup complete, adding to canvas layer")
-		if canvas_layer:
-			canvas_layer.add_child(store_instance)
-			store_visible = false
-		else:
-			if Log:
-				Log.error("GC: No canvas layer found to add store to!")
-	else:
-		if Log:
-			Log.error("GC: Failed to load store scene!")
-
-func update_launcher_with_upgrades():
-	if launcher and is_instance_valid(launcher):
-		if Log:
-			Log.debug("GC: Updating launcher with upgrades: " + str(upgrades))
-		
-		if "multi_shot" in upgrades:
-			launcher.multi_shot_count = upgrades["multi_shot"]
-			if Log:
-				Log.debug("GC: Set launcher.multi_shot_count directly to: " + str(launcher.multi_shot_count))
-		
-		if "launch_speed" in upgrades:
-			var base_speed = 350.0
-			var speed_increment = 50.0
-			launcher.launch_speed = base_speed + (upgrades.get("launch_speed", 0) * speed_increment)
-			if Log:
-				Log.debug("GC: Updated launch_speed to: " + str(launcher.launch_speed))
-			
-		if "cooldown" in upgrades:
-			var base_cooldown = 0.5
-			var cooldown_reduction = 0.05
-			launcher.cooldown_time = max(0.1, base_cooldown - (upgrades.get("cooldown", 0) * cooldown_reduction))
-			if Log:
-				Log.debug("GC: Updated cooldown_time to: " + str(launcher.cooldown_time))
-		
-		if Log:
-			Log.debug("GC: Forcing launcher to update with upgrades: " + str(upgrades))
-		if launcher.has_method("_on_upgrades_changed"):
-			launcher._on_upgrades_changed(upgrades)
-			if Log:
-				Log.debug("GC: Verified multi_shot_count is now: " + str(launcher.multi_shot_count))
-		else:
-			if Log:
-				Log.error("GC: ERROR - launcher does not have _on_upgrades_changed method")
-	else:
-		if Log:
-			Log.warning("GC: WARNING - No valid launcher found to update")
-
-func _on_multi_shot_purchased():
-	if not upgrades.has("multi_shot"):
-		upgrades["multi_shot"] = 1
-	
-	upgrades["multi_shot"] += 1
-	
-	if launcher:
-		launcher.multi_shot_count = upgrades["multi_shot"] 
-	
-	SignalBus.emit_upgrades_changed(upgrades)
-
 func _on_game_ended():
 	game_running = false
 	
@@ -531,35 +342,6 @@ func _on_score_changed(new_score):
 func _on_money_changed(new_money):
 	money = new_money
 	update_money_display()
-
-func _on_upgrades_changed(new_upgrades):
-	if Log:
-		Log.debug("GC: _on_upgrades_changed received: " + str(new_upgrades))
-	upgrades = new_upgrades.duplicate()
-	update_upgrades_display()
-	
-	if launcher and is_instance_valid(launcher):
-		if Log:
-			Log.debug("GC: Launcher exists, updating...")
-		if "multi_shot" in upgrades and launcher.has_method("_on_upgrades_changed"):
-			launcher._on_upgrades_changed(upgrades)
-			
-			if Log:
-				Log.debug("GC: Launcher multi_shot_count after update: " + str(launcher.multi_shot_count))
-		else:
-			if Log:
-				Log.debug("GC: Launcher is not valid in _on_upgrades_changed")
-	
-	update_launcher_with_upgrades()
-
-func handle_enemy_spawning(_delta):
-	pass
-
-func update_difficulty(_delta):
-	pass
-
-func advance_level():
-	pass
 
 func _on_viewport_size_changed():
 	setup_spawn_positions()
@@ -613,45 +395,3 @@ func _on_enemy_reached_bottom(enemy):
 		
 		if not is_game_over:
 			is_game_over = true
-
-func set_money(new_money):
-	money = new_money
-	update_money_display()
-	if Log:
-		Log.debug("GC: Set money to: " + str(money))
-
-func force_multishot_upgrade():
-	if Log:
-		Log.debug("GC: Force upgrading multi-shot")
-	upgrades["multi_shot"] = 3
-	
-	if launcher and is_instance_valid(launcher):
-		launcher.multi_shot_count = upgrades["multi_shot"]
-		if Log:
-			Log.debug("GC: Force-set launcher.multi_shot_count to: " + str(launcher.multi_shot_count))
-		
-		if launcher.has_method("_on_upgrades_changed"):
-			launcher._on_upgrades_changed(upgrades)
-	
-	SignalBus.emit_upgrades_changed(upgrades)
-	return true
-
-func force_launch_speed_upgrade():
-	if Log:
-		Log.debug("GC: Force upgrading launch speed")
-	upgrades["launch_speed"] = 3
-	
-	if launcher and is_instance_valid(launcher):
-		launcher.launch_speed = 350.0 + (upgrades["launch_speed"] * 50.0)
-		if Log:
-			Log.debug("GC: Force-set launcher.launch_speed to: " + str(launcher.launch_speed))
-		
-		if launcher.has_method("_on_upgrades_changed"):
-			launcher._on_upgrades_changed(upgrades)
-	
-	SignalBus.emit_upgrades_changed(upgrades)
-	return true
-
-func _on_item_pressed(item_index):
-	if item_index == 0:
-		_on_multi_shot_purchased()

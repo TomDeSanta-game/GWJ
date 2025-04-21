@@ -15,9 +15,6 @@ func _ready():
 	if not SignalBus.money_changed.is_connected(_on_money_changed):
 		SignalBus.money_changed.connect(_on_money_changed)
 	
-	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
-		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
-	
 	delete_save_files()
 	
 	load_high_scores()
@@ -38,7 +35,6 @@ func delete_save_files():
 	
 	SignalBus.emit_high_scores_updated(high_scores)
 	SignalBus.emit_money_changed(player_money)
-	SignalBus.emit_upgrades_changed(player_upgrades)
 
 func _on_game_over():
 	var current_score = get_tree().current_scene.score
@@ -48,10 +44,6 @@ func _on_game_over():
 
 func _on_money_changed(amount: int):
 	player_money = amount
-	save_game_data()
-	
-func _on_upgrades_changed(upgrades: Dictionary):
-	player_upgrades = upgrades
 	save_game_data()
 
 func check_and_update_high_scores(score: int):

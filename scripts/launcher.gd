@@ -11,7 +11,6 @@ var can_launch = true
 var cooldown_time = 1.0
 var trajectory_points = 10
 var trajectory_length = 300
-var multi_shot_count = 1
 var launch_speed = 1200.0
 var reticle_visible = true
 var last_shape_type = -1
@@ -27,9 +26,6 @@ func _ready():
 		if child is Line2D:
 			child.visible = false
 			child.queue_free()
-	
-	if not SignalBus.upgrades_changed.is_connected(_on_upgrades_changed):
-		SignalBus.upgrades_changed.connect(_on_upgrades_changed)
 	
 	spawn_shape()
 	create_aim_indicator()
@@ -104,6 +100,10 @@ func update_aim_direction():
 	var mouse_pos = get_global_mouse_position()
 	var launch_position = global_position + Vector2(0, -30)  # 30 pixels above launcher
 	
+	# Ensure we can't aim downward - restrict to above the launcher
+	if mouse_pos.y > launch_position.y:
+		mouse_pos.y = launch_position.y
+	
 	# Calculate direction and distance
 	var direction = (mouse_pos - launch_position).normalized()
 	var distance = min(launch_position.distance_to(mouse_pos), max_aim_distance)
@@ -141,15 +141,18 @@ func _input(event):
 func launch_shape():
 	if !can_launch or !current_shape:
 		return
-		
+	
 	var mouse_pos = get_global_mouse_position()
 	var launch_position = global_position + Vector2(0, -30)
 	var direction = (mouse_pos - launch_position).normalized()
 	
+	# Create and launch first shape
 	var shape = current_shape
-	
 	if shape:
-		shape.global_position = launch_position
+		# Set position directly
+		shape.global_transform = Transform2D(0, launch_position)
+		
+		# Launch the shape
 		shape.apply_central_impulse(direction * launch_speed * 5)
 		shape.linear_velocity = direction * launch_speed * 2
 		
@@ -163,11 +166,12 @@ func launch_shape():
 			launch_sound.pitch_scale = 1.0
 			launch_sound.play()
 	
+	# Prepare for next shot
 	can_launch = false
+	current_shape = null
+	
 	if cooldown_timer:
 		cooldown_timer.start(cooldown_time)
-	
-	current_shape = null
 	
 	spawn_shape_immediate()
 
@@ -189,7 +193,7 @@ func spawn_shape_immediate():
 	last_shape_color = new_color
 	
 	add_child(shape)
-	shape.position = global_position
+	# Don't set position here - we'll set it explicitly when launching
 	shape.scale = Vector2(0.9, 0.9)
 	shape.z_index = 5
 	current_shape = shape
@@ -202,35 +206,5 @@ func spawn_shape():
 	
 	return spawn_shape_immediate()
 
-func spawn_shape_instantly():
-	var shape = shape_scene.instantiate() 
-	
-	var new_type = randi() % 3
-	while new_type == last_shape_type:
-		new_type = randi() % 3
-	
-	var new_color = randi() % 6
-	while new_color == last_shape_color:
-		new_color = randi() % 6
-	
-	shape.shape_type = new_type
-	shape.color = new_color
-	
-	last_shape_type = new_type
-	last_shape_color = new_color
-	
-	add_child(shape)
-	shape.position = global_position
-	shape.scale = Vector2(0.9, 0.9)
-	shape.z_index = 5
-	shape.set_launched(true)
-	return shape
-
 func _on_cooldown_timer_timeout():
 	can_launch = true
-
-func _on_upgrades_changed(upgrades):
-	launch_speed = 1200.0 + (upgrades.get("launch_power", 0) * 200.0)
-	cooldown_time = max(0.2, 1.0 - (upgrades.get("cooldown", 0) * 0.15))
-	if cooldown_timer:
-		cooldown_timer.wait_time = cooldown_time

@@ -50,11 +50,18 @@ shape_scene = ExtResource("4_77nxu")
 high_score_panel_scene = ExtResource("5_r3w1c")
 
 [node name="Background" type="TextureRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 offset_right = 1152.0
 offset_bottom = 650.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 texture = SubResource("GradientTexture2D_e32x8")
 expand_mode = 1
-stretch_mode = 1
+stretch_mode = 6
 
 [node name="AnimationIcons" type="Node" parent="."]
 script = ExtResource("6_tfw1n")

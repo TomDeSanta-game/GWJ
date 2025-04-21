@@ -9,7 +9,6 @@ signal score_changed(score)
 signal money_changed(amount)
 signal high_scores_updated(high_scores)
 signal new_high_score(score, position)
-signal upgrades_changed(upgrades)
 
 func emit_shape_collided(shape, collision_point):
     emit_signal("shape_collided", shape, collision_point)
@@ -36,7 +35,4 @@ func emit_high_scores_updated(high_scores: Array):
     emit_signal("high_scores_updated", high_scores)
     
 func emit_new_high_score(score: int, position: int):
-    emit_signal("new_high_score", score, position)
-
-func emit_upgrades_changed(upgrades: Dictionary):
-    emit_signal("upgrades_changed", upgrades)  
+    emit_signal("new_high_score", score, position)  
